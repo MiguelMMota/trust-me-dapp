@@ -6,10 +6,11 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import TopicBrowser from '@/components/TopicBrowser';
 import { useUserProfile, useRegisterUser } from '@/hooks/useContracts';
 import Link from 'next/link';
+import { NetworkSwitcher } from '@/components/NetworkSwitcher';
+import { ContractErrorBoundary } from '@/components/ContractErrorBoundary';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
-  const { isRegistered, profile, userTopicIds } = useUserProfile(address);
   const { registerUser, isConfirming } = useRegisterUser();
   const [selectedTopicId, setSelectedTopicId] = useState<number | undefined>();
 
@@ -26,6 +27,35 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  return (
+    <ContractErrorBoundary>
+      <NetworkSwitcher />
+      <DashboardContent
+        address={address}
+        selectedTopicId={selectedTopicId}
+        setSelectedTopicId={setSelectedTopicId}
+        registerUser={registerUser}
+        isConfirming={isConfirming}
+      />
+    </ContractErrorBoundary>
+  );
+}
+
+function DashboardContent({
+  address,
+  selectedTopicId,
+  setSelectedTopicId,
+  registerUser,
+  isConfirming
+}: {
+  address: `0x${string}` | undefined;
+  selectedTopicId: number | undefined;
+  setSelectedTopicId: (id: number | undefined) => void;
+  registerUser: () => void;
+  isConfirming: boolean;
+}) {
+  const { isRegistered, profile } = useUserProfile(address);
 
   if (isRegistered === false) {
     return (
