@@ -81,7 +81,7 @@ export function ContractInteraction() {
           </div>
           <button
             onClick={() => refetch()}
-            className="mt-3 w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="mt-3 w-full px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
           >
             Refresh Value
           </button>
@@ -100,7 +100,7 @@ export function ContractInteraction() {
             <button
               onClick={handleStore}
               disabled={!valueToStore || isPending || isConfirming}
-              className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              className="w-full px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isPending ? 'Confirming...' : isConfirming ? 'Processing...' : 'Store Value'}
             </button>

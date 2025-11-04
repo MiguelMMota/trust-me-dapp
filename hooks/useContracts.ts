@@ -193,6 +193,24 @@ export function useChallenge(challengeId: bigint) {
   };
 }
 
+export function useChallengeAttempt(challengeId: bigint, address?: Address) {
+  const { address: connectedAddress } = useAccount();
+  const userAddress = address || connectedAddress;
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'Challenge');
+
+  const { data: attempt } = useReadContract({
+    ...contract,
+    functionName: 'getUserAttempt',
+    args: [challengeId, userAddress!],
+    query: { enabled: challengeId > 0n && !!userAddress },
+  });
+
+  return {
+    attempt: attempt as any,
+  };
+}
+
 export function useTopicChallenges(topicId: number) {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Challenge');
