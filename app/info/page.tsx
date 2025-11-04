@@ -1,8 +1,13 @@
+'use client';
+
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { Footer } from '@/components/Footer';
 
 export default function Info() {
+  const { address } = useAccount();
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
       <nav className="border-b border-gray-200 dark:border-gray-700">
@@ -16,6 +21,14 @@ export default function Info() {
               >
                 Info
               </Link>
+              {address && (
+                <Link
+                  href={`/user/${address}`}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  My Profile
+                </Link>
+              )}
               <ConnectButton />
             </div>
           </div>

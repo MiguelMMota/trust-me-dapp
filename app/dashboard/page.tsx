@@ -18,6 +18,22 @@ export default function Dashboard() {
   if (!isConnected) {
     return (
       <div className="min-h-screen flex flex-col">
+        <nav className="border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/info"
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  Info
+                </Link>
+                <ConnectButton />
+              </div>
+            </div>
+          </div>
+        </nav>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">TrustMe Dashboard</h1>
@@ -64,6 +80,30 @@ function DashboardContent({
   if (isRegistered === false) {
     return (
       <div className="min-h-screen flex flex-col">
+        <nav className="border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/info"
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  Info
+                </Link>
+                {address && (
+                  <Link
+                    href={`/user/${address}`}
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  >
+                    My Profile
+                  </Link>
+                )}
+                <ConnectButton />
+              </div>
+            </div>
+          </div>
+        </nav>
         <div className="flex-1 flex items-center justify-center">
           <div className="max-w-md text-center">
             <h1 className="text-4xl font-bold mb-4">Welcome to TrustMe</h1>
@@ -86,6 +126,30 @@ function DashboardContent({
 
   return (
     <div className="min-h-screen flex flex-col">
+      <nav className="border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/info"
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                Info
+              </Link>
+              {address && (
+                <Link
+                  href={`/user/${address}`}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  My Profile
+                </Link>
+              )}
+              <ConnectButton />
+            </div>
+          </div>
+        </div>
+      </nav>
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -96,7 +160,6 @@ function DashboardContent({
                 Welcome back! Build your expertise and vote on important topics.
               </p>
             </div>
-            <ConnectButton />
           </div>
 
           {/* Stats Overview */}
