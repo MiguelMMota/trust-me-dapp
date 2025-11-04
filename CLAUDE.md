@@ -1,0 +1,1 @@
+- If you need access a local instance of the app and there's already a process running in the expected port, check to see if that's the app running in a separate process. If that's the case, just use this process to test any changes, unless you specifically need to restart the local server
