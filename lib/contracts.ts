@@ -11,6 +11,7 @@ import ChallengeABI from '@/abis/contracts/Challenge.sol/Challenge.json';
 import ReputationEngineABI from '@/abis/contracts/ReputationEngine.sol/ReputationEngine.json';
 import PollABI from '@/abis/contracts/Poll.sol/Poll.json';
 
+
 // Contract addresses - UPDATE THESE AFTER DEPLOYMENT
 export const CONTRACTS = {
   // Local development (Anvil)
@@ -45,7 +46,7 @@ export const ABIS = {
 // Get contract address for current network
 export function getContractAddress(
   chainId: number,
-  contractName: keyof typeof CONTRACTS[31337]
+  contractName: keyof typeof CONTRACTS[11155111]
 ): `0x${string}` {
   const addresses = CONTRACTS[chainId as keyof typeof CONTRACTS];
   if (!addresses) {
