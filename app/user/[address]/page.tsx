@@ -9,11 +9,13 @@ import {
   useUserChallengeHistory,
   useTopic,
   useChallenge,
-  useChallengeAttempt
+  useChallengeAttempt,
+  useTopics
 } from '@/hooks/useContracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 interface PageProps {
   params: Promise<{ address: string }>;
@@ -251,13 +253,7 @@ function BaseballCard({
   profile: any;
   userTopicIds: number[];
 }) {
-  // Get expertise for all topics and sort by score
-  const topicExpertise = userTopicIds.map(topicId => {
-    const { expertise, score } = useUserExpertise(address, topicId);
-    return { topicId, expertise, score: score || 0 };
-  }).sort((a, b) => b.score - a.score);
-
-  const topTopics = topicExpertise.slice(0, 3);
+  const { rootTopicIds } = useTopics();
 
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
@@ -289,27 +285,70 @@ function BaseballCard({
           </div>
         </div>
 
-        {/* Right Side - Top Expertise */}
+        {/* Right Side - Score Radar Chart */}
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
           <h3 className="text-xl font-bold mb-4">Score Card</h3>
-          {topTopics.length === 0 ? (
-            <p className="text-sm opacity-75">
-              No expertise data yet. Start by taking challenges!
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {topTopics.map(({ topicId, score }) => (
-                <TopicExpertiseBadge
-                  key={topicId}
-                  topicId={topicId}
-                  score={score}
-                  address={address}
-                />
-              ))}
-            </div>
-          )}
+          <TopicScoreRadar
+            address={address}
+            rootTopicIds={rootTopicIds || []}
+          />
         </div>
       </div>
+    </div>
+  );
+}
+
+function TopicScoreRadar({
+  address,
+  rootTopicIds
+}: {
+  address: `0x${string}`;
+  rootTopicIds: number[];
+}) {
+  // Get scores for each root topic
+  const topicScores = rootTopicIds.map(topicId => {
+    const { topic } = useTopic(topicId);
+    const { score } = useUserExpertise(address, topicId);
+    return {
+      topic: topic?.name || `Topic ${topicId}`,
+      score: score || 0,
+    };
+  });
+
+  if (topicScores.length === 0) {
+    return (
+      <p className="text-sm opacity-75">
+        No root topics available yet.
+      </p>
+    );
+  }
+
+  // Find max score to normalize the radar chart
+  const maxScore = Math.max(...topicScores.map(t => t.score), 100);
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart data={topicScores}>
+          <PolarGrid stroke="#ffffff40" />
+          <PolarAngleAxis
+            dataKey="topic"
+            tick={{ fill: '#ffffff', fontSize: 12 }}
+          />
+          <PolarRadiusAxis
+            angle={90}
+            domain={[0, maxScore]}
+            tick={{ fill: '#ffffff80', fontSize: 10 }}
+          />
+          <Radar
+            name="Score"
+            dataKey="score"
+            stroke="#60a5fa"
+            fill="#60a5fa"
+            fillOpacity={0.6}
+          />
+        </RadarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
