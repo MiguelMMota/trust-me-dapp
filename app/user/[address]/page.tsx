@@ -10,7 +10,8 @@ import {
   useTopic,
   useChallenge,
   useChallengeAttempt,
-  useTopics
+  useTopics,
+  useUserGivenRatings
 } from '@/hooks/useContracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
 import Link from 'next/link';
@@ -525,21 +526,98 @@ function PollsTab({ userAddress: _userAddress }: { userAddress: `0x${string}` })
   );
 }
 
-function FeedbackTab({ userAddress: _userAddress }: { userAddress: `0x${string}` }) {
-  return (
-    <div className="text-center py-12">
-      <div className="mb-8">
-        <h3 className="text-lg font-bold mb-2">Feedback Given</h3>
+function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
+  const { ratings, isLoading } = useUserGivenRatings(userAddress);
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/4 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!ratings || ratings.length === 0) {
+    return (
+      <div className="text-center py-12">
         <p className="text-gray-600 dark:text-gray-400">
           No feedback given yet.
         </p>
       </div>
-      <div>
-        <h3 className="text-lg font-bold mb-2">Feedback Received</h3>
-        <p className="text-gray-600 dark:text-gray-400">
-          No feedback received yet.
-        </p>
+    );
+  }
+
+  return (
+    <div>
+      <h3 className="text-lg font-bold mb-4">Feedback Given</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                Recipient
+              </th>
+              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                Topic
+              </th>
+              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                Score
+              </th>
+              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+                Time
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {ratings.map((rating, index) => (
+              <FeedbackRow key={`${rating.ratee}-${rating.topicId}-${index}`} rating={rating} />
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
+  );
+}
+
+function FeedbackRow({ rating }: { rating: any }) {
+  const { topic } = useTopic(rating.topicId);
+  const ratingDate = new Date(Number(rating.timestamp) * 1000);
+
+  return (
+    <tr className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          href={`/user/${rating.ratee}`}
+          className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {rating.ratee.slice(0, 8)}...{rating.ratee.slice(-6)}
+        </Link>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
+        {topic?.name || `Topic #${rating.topicId}`}
+      </td>
+      <td className="py-3 px-4">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+          {rating.score} / 1000
+        </span>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+        {ratingDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })}
+        <br />
+        <span className="text-xs">
+          {ratingDate.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </span>
+      </td>
+    </tr>
   );
 }

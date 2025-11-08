@@ -2,9 +2,12 @@
  * Custom hooks for TrustMe contract interactions
  */
 
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useContractEvent } from 'wagmi';
 import { getContract } from '@/lib/contracts';
 import type { Address } from '@/lib/types';
+import { useState, useEffect } from 'react';
+import { createPublicClient, http } from 'viem';
+import { sepolia, hardhat } from 'viem/chains';
 
 // Hook to get current chain ID
 export function useChainId() {
@@ -414,6 +417,151 @@ export function useVotePoll() {
 
   return {
     vote,
+    hash,
+    isConfirming,
+    isSuccess,
+    ...rest,
+  };
+}
+
+// ========== PeerRating Hooks ==========
+
+export interface PeerRating {
+  rater: Address;
+  ratee: Address;
+  topicId: number;
+  score: number;
+  timestamp: bigint;
+  exists: boolean;
+}
+
+export function useUserGivenRatings(address?: Address) {
+  const { address: connectedAddress, chain } = useAccount();
+  const userAddress = address || connectedAddress;
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'PeerRating');
+  const [ratings, setRatings] = useState<PeerRating[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userAddress) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchRatings = async () => {
+      try {
+        setIsLoading(true);
+
+        // Create a public client for reading contract events
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        // Query RatingSubmitted events where the user is the rater
+        const logs = await publicClient.getContractEvents({
+          address: contract.address,
+          abi: contract.abi,
+          eventName: 'RatingSubmitted',
+          fromBlock: 'earliest',
+          toBlock: 'latest',
+          args: {
+            rater: userAddress,
+          },
+        });
+
+        // Query RatingUpdated events where the user is the rater
+        const updateLogs = await publicClient.getContractEvents({
+          address: contract.address,
+          abi: contract.abi,
+          eventName: 'RatingUpdated',
+          fromBlock: 'earliest',
+          toBlock: 'latest',
+          args: {
+            rater: userAddress,
+          },
+        });
+
+        // Process logs and get the most recent rating for each (ratee, topicId) pair
+        const ratingsMap = new Map<string, PeerRating>();
+
+        // Process RatingSubmitted events
+        logs.forEach((log: any) => {
+          const { rater, ratee, topicId, score, timestamp } = log.args;
+          const key = `${ratee}-${topicId}`;
+          const existing = ratingsMap.get(key);
+
+          if (!existing || timestamp > existing.timestamp) {
+            ratingsMap.set(key, {
+              rater,
+              ratee,
+              topicId: Number(topicId),
+              score: Number(score),
+              timestamp,
+              exists: true,
+            });
+          }
+        });
+
+        // Process RatingUpdated events (these should override previous ratings)
+        updateLogs.forEach((log: any) => {
+          const { rater, ratee, topicId, newScore, timestamp } = log.args;
+          const key = `${ratee}-${topicId}`;
+          const existing = ratingsMap.get(key);
+
+          if (!existing || timestamp > existing.timestamp) {
+            ratingsMap.set(key, {
+              rater,
+              ratee,
+              topicId: Number(topicId),
+              score: Number(newScore),
+              timestamp,
+              exists: true,
+            });
+          }
+        });
+
+        // Convert map to array and sort by timestamp (newest first)
+        const ratingsArray = Array.from(ratingsMap.values()).sort(
+          (a, b) => Number(b.timestamp) - Number(a.timestamp)
+        );
+
+        setRatings(ratingsArray);
+      } catch (error) {
+        console.error('Error fetching peer ratings:', error);
+        setRatings([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRatings();
+  }, [userAddress, chainId, contract.address, contract.abi]);
+
+  return {
+    ratings,
+    isLoading,
+  };
+}
+
+export function useRateUser() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'PeerRating');
+  const { writeContract, data: hash, ...rest } = useWriteContract();
+
+  const rateUser = (ratee: Address, topicId: number, score: number) => {
+    writeContract({
+      ...contract,
+      functionName: 'rateUser',
+      args: [ratee, topicId, score],
+    });
+  };
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    rateUser,
     hash,
     isConfirming,
     isSuccess,

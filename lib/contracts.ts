@@ -10,6 +10,7 @@ import UserABI from '@/abis/contracts/User.sol/User.json';
 import ChallengeABI from '@/abis/contracts/Challenge.sol/Challenge.json';
 import ReputationEngineABI from '@/abis/contracts/ReputationEngine.sol/ReputationEngine.json';
 import PollABI from '@/abis/contracts/Poll.sol/Poll.json';
+import PeerRatingABI from '@/abis/contracts/PeerRating.sol/PeerRating.json';
 
 
 // Contract addresses - UPDATE THESE AFTER DEPLOYMENT
@@ -41,6 +42,7 @@ export const ABIS = {
   Challenge: ChallengeABI.abi,
   ReputationEngine: ReputationEngineABI.abi,
   Poll: PollABI.abi,
+  PeerRating: PeerRatingABI.abi,
 } as const;
 
 // Get contract address for current network
