@@ -310,9 +310,12 @@ function TopicScoreRadar({
   const topicScores = rootTopicIds.map(topicId => {
     const { topic } = useTopic(topicId);
     const { score } = useUserExpertise(address, topicId);
+    // Normalize score from 0-1000 to 0-100
+    const normalizedScore = (score || 0) / 10;
     return {
+      topicId,
       topic: topic?.name || `Topic ${topicId}`,
-      score: score || 0,
+      score: normalizedScore,
     };
   });
 
@@ -324,32 +327,48 @@ function TopicScoreRadar({
     );
   }
 
+  // Sort by topic ID
+  const sortedScores = [...topicScores].sort((a, b) => a.topicId - b.topicId);
+
   // Find max score to normalize the radar chart
   const maxScore = Math.max(...topicScores.map(t => t.score), 100);
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={topicScores}>
-          <PolarGrid stroke="#ffffff40" />
-          <PolarAngleAxis
-            dataKey="topic"
-            tick={{ fill: '#ffffff', fontSize: 12 }}
-          />
-          <PolarRadiusAxis
-            angle={90}
-            domain={[0, maxScore]}
-            tick={{ fill: '#ffffff80', fontSize: 10 }}
-          />
-          <Radar
-            name="Score"
-            dataKey="score"
-            stroke="#60a5fa"
-            fill="#60a5fa"
-            fillOpacity={0.6}
-          />
-        </RadarChart>
-      </ResponsiveContainer>
+    <div className="flex gap-6 items-center">
+      {/* Radar Chart */}
+      <div className="h-64 flex-1 min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={topicScores}>
+            <PolarGrid stroke="#ffffff40" />
+            <PolarAngleAxis
+              dataKey="topic"
+              tick={{ fill: '#ffffff', fontSize: 12 }}
+            />
+            <PolarRadiusAxis
+              angle={90}
+              domain={[0, maxScore]}
+              tick={{ fill: '#ffffff80', fontSize: 10 }}
+            />
+            <Radar
+              name="Score"
+              dataKey="score"
+              stroke="#60a5fa"
+              fill="#60a5fa"
+              fillOpacity={0.6}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Topic Scores List */}
+      <div className="flex-shrink-0 space-y-2">
+        {sortedScores.map(({ topicId, topic, score }) => (
+          <div key={topicId} className="flex items-center gap-3 text-sm">
+            <span className="opacity-90 min-w-[140px] text-right">{topic}</span>
+            <span className="font-bold min-w-[40px]">{score.toFixed(0)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
