@@ -452,22 +452,22 @@ function TopicSelector({
           {/* Dropdown */}
           <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 max-h-96 overflow-hidden flex flex-col">
             {/* Control Buttons */}
-            <div className="flex gap-2 p-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-1 p-2 border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleAll}
-                className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
+                className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               >
                 All
               </button>
               <button
                 onClick={handleClear}
-                className="flex-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-medium transition-colors"
+                className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               >
                 Clear
               </button>
               <button
                 onClick={handleReset}
-                className="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+                className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               >
                 Reset
               </button>
