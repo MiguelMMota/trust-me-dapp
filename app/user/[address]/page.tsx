@@ -11,12 +11,16 @@ import {
   useChallenge,
   useChallengeAttempt,
   useTopics,
-  useUserGivenRatings
+  useUserGivenRatings,
+  useChainId
 } from '@/hooks/useContracts';
+import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import { createPublicClient, http } from 'viem';
+import { sepolia, hardhat } from 'viem/chains';
 
 interface PageProps {
   params: Promise<{ address: string }>;
@@ -327,15 +331,60 @@ function TopicSelector({
   onSelectionChange: (ids: number[]) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [topics, setTopics] = useState<Array<{ id: number; topic: any; childTopicIds: number[] }>>([]);
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
 
-  // Build hierarchical topic structure
-  const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
+  // Fetch all topics when topicCount changes
+  useEffect(() => {
+    if (topicCount === 0) {
+      setTopics([]);
+      return;
+    }
 
-  // Fetch all topics
-  const topics = allTopicIds.map(id => {
-    const { topic, childTopicIds } = useTopic(id);
-    return { id, topic, childTopicIds: childTopicIds || [] };
-  });
+    const fetchTopics = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
+        const topicsData = await Promise.all(
+          allTopicIds.map(async (id) => {
+            try {
+              const [topic, childTopicIds] = await Promise.all([
+                publicClient.readContract({
+                  address: contract.address,
+                  abi: contract.abi,
+                  functionName: 'getTopic',
+                  args: [id],
+                }),
+                publicClient.readContract({
+                  address: contract.address,
+                  abi: contract.abi,
+                  functionName: 'getChildTopics',
+                  args: [id],
+                }),
+              ]);
+
+              return { id, topic, childTopicIds: childTopicIds as number[] };
+            } catch (error) {
+              console.error(`Error fetching topic ${id}:`, error);
+              return { id, topic: null, childTopicIds: [] };
+            }
+          })
+        );
+
+        setTopics(topicsData);
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+        setTopics([]);
+      }
+    };
+
+    fetchTopics();
+  }, [topicCount, chainId, contract.address, contract.abi]);
 
   // Build hierarchical structure sorted by topic ID
   const buildHierarchy = (parentId: number, depth: number = 0): { id: number; name: string; depth: number; parentId: number }[] => {
