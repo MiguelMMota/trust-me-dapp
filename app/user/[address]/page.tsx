@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
@@ -254,7 +254,15 @@ function BaseballCard({
   profile: any;
   userTopicIds: number[];
 }) {
-  const { rootTopicIds } = useTopics();
+  const { rootTopicIds, topicCount } = useTopics();
+  const [selectedTopicIds, setSelectedTopicIds] = useState<number[]>([]);
+
+  // Update selected topics when root topics load
+  useEffect(() => {
+    if (rootTopicIds && rootTopicIds.length > 0 && selectedTopicIds.length === 0) {
+      setSelectedTopicIds(rootTopicIds);
+    }
+  }, [rootTopicIds, selectedTopicIds.length]);
 
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
@@ -288,10 +296,18 @@ function BaseballCard({
 
         {/* Right Side - Score Radar Chart */}
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
-          <h3 className="text-xl font-bold mb-4">Score Card</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">Score Card</h3>
+            <TopicSelector
+              topicCount={topicCount || 0}
+              rootTopicIds={rootTopicIds || []}
+              selectedTopicIds={selectedTopicIds}
+              onSelectionChange={setSelectedTopicIds}
+            />
+          </div>
           <TopicScoreRadar
             address={address}
-            rootTopicIds={rootTopicIds || []}
+            selectedTopicIds={selectedTopicIds}
           />
         </div>
       </div>
@@ -299,15 +315,151 @@ function BaseballCard({
   );
 }
 
+function TopicSelector({
+  topicCount,
+  rootTopicIds,
+  selectedTopicIds,
+  onSelectionChange
+}: {
+  topicCount: number;
+  rootTopicIds: number[];
+  selectedTopicIds: number[];
+  onSelectionChange: (ids: number[]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Build hierarchical topic structure
+  const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
+
+  // Fetch all topics
+  const topics = allTopicIds.map(id => {
+    const { topic, childTopicIds } = useTopic(id);
+    return { id, topic, childTopicIds: childTopicIds || [] };
+  });
+
+  // Build hierarchical structure sorted by topic ID
+  const buildHierarchy = (parentId: number, depth: number = 0): { id: number; name: string; depth: number; parentId: number }[] => {
+    const children = topics
+      .filter(t => t.topic?.parentId === parentId)
+      .sort((a, b) => a.id - b.id);
+
+    const result: { id: number; name: string; depth: number; parentId: number }[] = [];
+    for (const child of children) {
+      result.push({
+        id: child.id,
+        name: child.topic?.name || `Topic ${child.id}`,
+        depth,
+        parentId: child.topic?.parentId || 0
+      });
+      result.push(...buildHierarchy(child.id, depth + 1));
+    }
+    return result;
+  };
+
+  const hierarchicalTopics = buildHierarchy(0);
+
+  const toggleTopic = (topicId: number) => {
+    if (selectedTopicIds.includes(topicId)) {
+      onSelectionChange(selectedTopicIds.filter(id => id !== topicId));
+    } else {
+      // Insert in hierarchical order
+      const newSelected = [...selectedTopicIds, topicId];
+      const ordered = hierarchicalTopics
+        .filter(t => newSelected.includes(t.id))
+        .map(t => t.id);
+      onSelectionChange(ordered);
+    }
+  };
+
+  const handleAll = () => {
+    onSelectionChange(hierarchicalTopics.map(t => t.id));
+  };
+
+  const handleClear = () => {
+    onSelectionChange([]);
+  };
+
+  const handleReset = () => {
+    onSelectionChange(rootTopicIds);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+      >
+        Select Topics ({selectedTopicIds.length})
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Dropdown */}
+          <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 max-h-96 overflow-hidden flex flex-col">
+            {/* Control Buttons */}
+            <div className="flex gap-2 p-3 border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={handleAll}
+                className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
+              >
+                All
+              </button>
+              <button
+                onClick={handleClear}
+                className="flex-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-medium transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleReset}
+                className="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+
+            {/* Topic List */}
+            <div className="overflow-y-auto p-2">
+              {hierarchicalTopics.map(({ id, name, depth }) => (
+                <label
+                  key={id}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                  style={{ paddingLeft: `${12 + depth * 20}px` }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTopicIds.includes(id)}
+                    onChange={() => toggleTopic(id)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-900 dark:text-gray-100">
+                    {name}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TopicScoreRadar({
   address,
-  rootTopicIds
+  selectedTopicIds
 }: {
   address: `0x${string}`;
-  rootTopicIds: number[];
+  selectedTopicIds: number[];
 }) {
-  // Get scores for each root topic
-  const topicScores = rootTopicIds.map(topicId => {
+  // Get scores for each selected topic
+  const topicScores = selectedTopicIds.map(topicId => {
     const { topic } = useTopic(topicId);
     const { score } = useUserExpertise(address, topicId);
     // Normalize score from 0-1000 to 0-100
@@ -322,13 +474,13 @@ function TopicScoreRadar({
   if (topicScores.length === 0) {
     return (
       <p className="text-sm opacity-75">
-        No root topics available yet.
+        No topics selected.
       </p>
     );
   }
 
-  // Sort by topic ID
-  const sortedScores = [...topicScores].sort((a, b) => a.topicId - b.topicId);
+  // Topics are already in the order they appear in selectedTopicIds
+  const sortedScores = topicScores;
 
   // Find max score to normalize the radar chart
   const maxScore = Math.max(...topicScores.map(t => t.score), 100);

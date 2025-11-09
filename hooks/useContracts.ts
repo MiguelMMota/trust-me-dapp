@@ -2,7 +2,7 @@
  * Custom hooks for TrustMe contract interactions
  */
 
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useContractEvent } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getContract } from '@/lib/contracts';
 import type { Address } from '@/lib/types';
 import { useState, useEffect } from 'react';
