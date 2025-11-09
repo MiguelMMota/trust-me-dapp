@@ -337,19 +337,24 @@ function TopicSelector({
 
   // Fetch all topics when topicCount changes
   useEffect(() => {
-    if (topicCount === 0) {
+    console.log('TopicSelector: topicCount =', topicCount, 'rootTopicIds =', rootTopicIds);
+
+    if (!topicCount || topicCount === 0) {
+      console.log('TopicSelector: topicCount is falsy or 0, skipping fetch');
       setTopics([]);
       return;
     }
 
     const fetchTopics = async () => {
       try {
+        console.log('TopicSelector: Fetching topics for chainId', chainId);
         const publicClient = createPublicClient({
           chain: chainId === 11155111 ? sepolia : hardhat,
           transport: http(),
         });
 
         const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
+        console.log('TopicSelector: Fetching topic IDs:', allTopicIds);
         const topicsData = await Promise.all(
           allTopicIds.map(async (id) => {
             try {
@@ -376,9 +381,10 @@ function TopicSelector({
           })
         );
 
+        console.log('TopicSelector: Fetched topics:', topicsData);
         setTopics(topicsData);
       } catch (error) {
-        console.error('Error fetching topics:', error);
+        console.error('TopicSelector: Error fetching topics:', error);
         setTopics([]);
       }
     };
@@ -391,6 +397,8 @@ function TopicSelector({
     const children = topics
       .filter(t => t.topic?.parentId === parentId)
       .sort((a, b) => a.id - b.id);
+
+    console.log(`buildHierarchy: parentId=${parentId}, found ${children.length} children`);
 
     const result: { id: number; name: string; depth: number; parentId: number }[] = [];
     for (const child of children) {
@@ -406,6 +414,7 @@ function TopicSelector({
   };
 
   const hierarchicalTopics = buildHierarchy(0);
+  console.log('TopicSelector: hierarchicalTopics =', hierarchicalTopics);
 
   const toggleTopic = (topicId: number) => {
     if (selectedTopicIds.includes(topicId)) {
