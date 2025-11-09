@@ -407,6 +407,16 @@ function TopicSelector({
 
   const hierarchicalTopics = buildHierarchy(0);
 
+  // Debug: log what we have
+  useEffect(() => {
+    console.log('TopicSelector Debug:');
+    console.log('- topicCount:', topicCount);
+    console.log('- rootTopicIds:', rootTopicIds);
+    console.log('- selectedTopicIds:', selectedTopicIds);
+    console.log('- fetched topics:', topics);
+    console.log('- hierarchicalTopics:', hierarchicalTopics);
+  }, [topicCount, rootTopicIds, selectedTopicIds, topics, hierarchicalTopics]);
+
   const toggleTopic = (topicId: number) => {
     if (selectedTopicIds.includes(topicId)) {
       onSelectionChange(selectedTopicIds.filter(id => id !== topicId));
@@ -438,7 +448,7 @@ function TopicSelector({
         onClick={() => setIsOpen(!isOpen)}
         className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
       >
-        Select Topics ({selectedTopicIds.length})
+        Topics ({selectedTopicIds.length}/{hierarchicalTopics.length})
       </button>
 
       {isOpen && (
@@ -450,9 +460,9 @@ function TopicSelector({
           />
 
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 max-h-96 overflow-hidden flex flex-col">
+          <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 flex flex-col">
             {/* Control Buttons */}
-            <div className="flex gap-1 p-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-1 p-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <button
                 onClick={handleAll}
                 className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -474,24 +484,30 @@ function TopicSelector({
             </div>
 
             {/* Topic List */}
-            <div className="overflow-y-auto p-2">
-              {hierarchicalTopics.map(({ id, name, depth }) => (
-                <label
-                  key={id}
-                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
-                  style={{ paddingLeft: `${12 + depth * 20}px` }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTopicIds.includes(id)}
-                    onChange={() => toggleTopic(id)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">
-                    {name}
-                  </span>
-                </label>
-              ))}
+            <div className="overflow-y-auto p-2 max-h-80">
+              {hierarchicalTopics.length > 0 ? (
+                hierarchicalTopics.map(({ id, name, depth }) => (
+                  <label
+                    key={id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                    style={{ paddingLeft: `${12 + depth * 20}px` }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTopicIds.includes(id)}
+                      onChange={() => toggleTopic(id)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-900 dark:text-gray-100">
+                      {name}
+                    </span>
+                  </label>
+                ))
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  {topicCount === 0 ? 'No topics available' : 'Loading topics...'}
+                </div>
+              )}
             </div>
           </div>
         </>
