@@ -26,6 +26,8 @@ interface PageProps {
   params: Promise<{ address: string }>;
 }
 
+const MAX_TOPICS_SELECTED = 10;
+
 export default function UserProfilePage({ params }: PageProps) {
   const { address } = use(params);
   const { address: connectedAddress, isConnected } = useAccount();
@@ -558,7 +560,7 @@ function TopicScoreRadarChart({
   return (
     <div className="h-64 flex-1 min-w-0">
       {selectedTopicIds.length > 0 ? (
-        selectedTopicIds.length <= 10 ? (
+        selectedTopicIds.length <= MAX_TOPICS_SELECTED ? (
           // For reasonable number of topics, render individual data fetchers
           <TopicScoreRadarChartWithData
             address={address}
@@ -566,7 +568,7 @@ function TopicScoreRadarChart({
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-sm opacity-75">Too many topics selected for radar view</p>
+            <p className="text-sm opacity-75">Too many topics selected for radar view. Select at most {MAX_TOPICS_SELECTED} topics</p>
           </div>
         )
       ) : (
