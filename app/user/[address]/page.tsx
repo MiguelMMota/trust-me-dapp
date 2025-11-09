@@ -260,13 +260,15 @@ function BaseballCard({
 }) {
   const { rootTopicIds, topicCount } = useTopics();
   const [selectedTopicIds, setSelectedTopicIds] = useState<number[]>([]);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Update selected topics when root topics load
+  // Update selected topics when root topics load (only once on initial load)
   useEffect(() => {
-    if (rootTopicIds && rootTopicIds.length > 0 && selectedTopicIds.length === 0) {
+    if (rootTopicIds && rootTopicIds.length > 0 && !hasInitialized) {
       setSelectedTopicIds(rootTopicIds);
+      setHasInitialized(true);
     }
-  }, [rootTopicIds, selectedTopicIds.length]);
+  }, [rootTopicIds, hasInitialized]);
 
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
