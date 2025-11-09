@@ -337,24 +337,19 @@ function TopicSelector({
 
   // Fetch all topics when topicCount changes
   useEffect(() => {
-    console.log('TopicSelector: topicCount =', topicCount, 'rootTopicIds =', rootTopicIds);
-
     if (!topicCount || topicCount === 0) {
-      console.log('TopicSelector: topicCount is falsy or 0, skipping fetch');
       setTopics([]);
       return;
     }
 
     const fetchTopics = async () => {
       try {
-        console.log('TopicSelector: Fetching topics for chainId', chainId);
         const publicClient = createPublicClient({
           chain: chainId === 11155111 ? sepolia : hardhat,
           transport: http(),
         });
 
         const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
-        console.log('TopicSelector: Fetching topic IDs:', allTopicIds);
         const topicsData = await Promise.all(
           allTopicIds.map(async (id) => {
             try {
@@ -381,10 +376,9 @@ function TopicSelector({
           })
         );
 
-        console.log('TopicSelector: Fetched topics:', topicsData);
         setTopics(topicsData);
       } catch (error) {
-        console.error('TopicSelector: Error fetching topics:', error);
+        console.error('Error fetching topics:', error);
         setTopics([]);
       }
     };
@@ -397,8 +391,6 @@ function TopicSelector({
     const children = topics
       .filter(t => t.topic?.parentId === parentId)
       .sort((a, b) => a.id - b.id);
-
-    console.log(`buildHierarchy: parentId=${parentId}, found ${children.length} children`);
 
     const result: { id: number; name: string; depth: number; parentId: number }[] = [];
     for (const child of children) {
@@ -414,7 +406,6 @@ function TopicSelector({
   };
 
   const hierarchicalTopics = buildHierarchy(0);
-  console.log('TopicSelector: hierarchicalTopics =', hierarchicalTopics);
 
   const toggleTopic = (topicId: number) => {
     if (selectedTopicIds.includes(topicId)) {
@@ -516,20 +507,7 @@ function TopicScoreRadar({
   address: `0x${string}`;
   selectedTopicIds: number[];
 }) {
-  // Get scores for each selected topic
-  const topicScores = selectedTopicIds.map(topicId => {
-    const { topic } = useTopic(topicId);
-    const { score } = useUserExpertise(address, topicId);
-    // Normalize score from 0-1000 to 0-100
-    const normalizedScore = (score || 0) / 10;
-    return {
-      topicId,
-      topic: topic?.name || `Topic ${topicId}`,
-      score: normalizedScore,
-    };
-  });
-
-  if (topicScores.length === 0) {
+  if (selectedTopicIds.length === 0) {
     return (
       <p className="text-sm opacity-75">
         No topics selected.
@@ -537,48 +515,171 @@ function TopicScoreRadar({
     );
   }
 
-  // Topics are already in the order they appear in selectedTopicIds
-  const sortedScores = topicScores;
-
-  // Find max score to normalize the radar chart
-  const maxScore = Math.max(...topicScores.map(t => t.score), 100);
-
   return (
     <div className="flex gap-6 items-center">
       {/* Radar Chart */}
-      <div className="h-64 flex-1 min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={topicScores}>
-            <PolarGrid stroke="#ffffff40" />
-            <PolarAngleAxis
-              dataKey="topic"
-              tick={{ fill: '#ffffff', fontSize: 12 }}
-            />
-            <PolarRadiusAxis
-              angle={90}
-              domain={[0, maxScore]}
-              tick={{ fill: '#ffffff80', fontSize: 10 }}
-            />
-            <Radar
-              name="Score"
-              dataKey="score"
-              stroke="#60a5fa"
-              fill="#60a5fa"
-              fillOpacity={0.6}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+      <TopicScoreRadarChart address={address} selectedTopicIds={selectedTopicIds} />
 
       {/* Topic Scores List */}
       <div className="flex-shrink-0 space-y-2">
-        {sortedScores.map(({ topicId, topic, score }) => (
-          <div key={topicId} className="flex items-center gap-3 text-sm">
-            <span className="opacity-90 min-w-[140px] text-right">{topic}</span>
-            <span className="font-bold min-w-[40px]">{score.toFixed(0)}</span>
-          </div>
+        {selectedTopicIds.map((topicId) => (
+          <TopicScoreItem key={topicId} topicId={topicId} address={address} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function TopicScoreRadarChart({
+  address,
+  selectedTopicIds
+}: {
+  address: `0x${string}`;
+  selectedTopicIds: number[];
+}) {
+  return (
+    <div className="h-64 flex-1 min-w-0">
+      {selectedTopicIds.length > 0 ? (
+        selectedTopicIds.length <= 10 ? (
+          // For reasonable number of topics, render individual data fetchers
+          <TopicScoreRadarChartWithData
+            address={address}
+            selectedTopicIds={selectedTopicIds}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm opacity-75">Too many topics selected for radar view</p>
+          </div>
+        )
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-sm opacity-75">No topics selected</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper component to render radar chart - fetches data using direct contract calls
+function TopicScoreRadarChartWithData({
+  address,
+  selectedTopicIds
+}: {
+  address: `0x${string}`;
+  selectedTopicIds: number[];
+}) {
+  const [topicData, setTopicData] = useState<Array<{ topicId: number; topic: string; score: number }>>([]);
+  const chainId = useChainId();
+  const topicContract = getContract(chainId, 'TopicRegistry');
+  const userContract = getContract(chainId, 'User');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const data = await Promise.all(
+          selectedTopicIds.slice(0, 10).map(async (topicId) => {
+            try {
+              const [topicResult, scoreResult] = await Promise.all([
+                publicClient.readContract({
+                  address: topicContract.address,
+                  abi: topicContract.abi,
+                  functionName: 'getTopic',
+                  args: [topicId],
+                }),
+                publicClient.readContract({
+                  address: userContract.address,
+                  abi: userContract.abi,
+                  functionName: 'getUserTopicScore',
+                  args: [address, topicId],
+                }),
+              ]);
+
+              const topic = topicResult as any;
+              const score = scoreResult as bigint;
+
+              return {
+                topicId,
+                topic: topic?.name || `Topic ${topicId}`,
+                score: Number(score || 0n) / 10, // Normalize from 0-1000 to 0-100
+              };
+            } catch (error) {
+              console.error(`Error fetching data for topic ${topicId}:`, error);
+              return {
+                topicId,
+                topic: `Topic ${topicId}`,
+                score: 0,
+              };
+            }
+          })
+        );
+
+        setTopicData(data);
+      } catch (error) {
+        console.error('Error fetching radar chart data:', error);
+      }
+    };
+
+    fetchData();
+  }, [selectedTopicIds, address, chainId, topicContract.address, topicContract.abi, userContract.address, userContract.abi]);
+
+  const maxScore = topicData.length > 0 ? Math.max(...topicData.map(t => t.score), 100) : 100;
+
+  if (topicData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm opacity-75">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <RadarChart data={topicData}>
+        <PolarGrid stroke="#ffffff40" />
+        <PolarAngleAxis
+          dataKey="topic"
+          tick={{ fill: '#ffffff', fontSize: 12 }}
+        />
+        <PolarRadiusAxis
+          angle={90}
+          domain={[0, maxScore]}
+          tick={{ fill: '#ffffff80', fontSize: 10 }}
+        />
+        <Radar
+          name="Score"
+          dataKey="score"
+          stroke="#60a5fa"
+          fill="#60a5fa"
+          fillOpacity={0.6}
+        />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function TopicScoreItem({
+  topicId,
+  address
+}: {
+  topicId: number;
+  address: `0x${string}`;
+}) {
+  const { topic } = useTopic(topicId);
+  const { score } = useUserExpertise(address, topicId);
+
+  // Normalize score from 0-1000 to 0-100
+  const normalizedScore = (score || 0) / 10;
+  const topicName = topic?.name || `Topic ${topicId}`;
+
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="opacity-90 min-w-[140px] text-right">{topicName}</span>
+      <span className="font-bold min-w-[40px]">{normalizedScore.toFixed(0)}</span>
     </div>
   );
 }
