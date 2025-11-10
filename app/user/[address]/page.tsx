@@ -12,7 +12,8 @@ import {
   useChallengeAttempt,
   useTopics,
   useUserGivenRatings,
-  useChainId
+  useChainId,
+  useUserName
 } from '@/hooks/useContracts';
 import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
@@ -261,6 +262,7 @@ function BaseballCard({
   userTopicIds: number[];
 }) {
   const { rootTopicIds, topicCount } = useTopics();
+  const { userName } = useUserName(address);
   const [selectedTopicIds, setSelectedTopicIds] = useState<number[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -277,6 +279,15 @@ function BaseballCard({
       <div className="grid md:grid-cols-2 gap-8">
         {/* Left Side - User Info */}
         <div className="space-y-6">
+          {userName && (
+            <div>
+              <div className="text-sm opacity-75 mb-1">Name</div>
+              <div className="text-2xl font-bold">
+                {userName}
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="text-sm opacity-75 mb-1">Address</div>
             <div className="font-mono text-lg break-all">
@@ -625,7 +636,7 @@ function TopicScoreRadarChartWithData({
               return {
                 topicId,
                 topic: topic?.name || `Topic ${topicId}`,
-                score: Number(score || 0n) / 10, // Normalize from 0-1000 to 0-100
+                score: Number(score || BigInt(0)) / 10, // Normalize from 0-1000 to 0-100
               };
             } catch (error) {
               console.error(`Error fetching data for topic ${topicId}:`, error);
@@ -958,6 +969,7 @@ function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackRow({ rating }: { rating: any }) {
   const { topic } = useTopic(rating.topicId);
+  const { userName } = useUserName(rating.ratee as `0x${string}`);
   const ratingDate = new Date(Number(rating.timestamp) * 1000);
 
   return (
@@ -965,9 +977,14 @@ function FeedbackRow({ rating }: { rating: any }) {
       <td className="py-3 px-4">
         <Link
           href={`/user/${rating.ratee}`}
-          className="font-mono text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm hover:underline"
         >
-          {rating.ratee.slice(0, 8)}...{rating.ratee.slice(-6)}
+          <div className="font-medium text-gray-900 dark:text-gray-100">
+            {userName || 'Anonymous'}
+          </div>
+          <div className="font-mono text-xs text-blue-600 dark:text-blue-400">
+            {rating.ratee.slice(0, 8)}...{rating.ratee.slice(-6)}
+          </div>
         </Link>
       </td>
       <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">

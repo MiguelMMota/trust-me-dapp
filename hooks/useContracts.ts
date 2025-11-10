@@ -64,7 +64,7 @@ export function useTopic(topicId: number) {
 export function useCreateTopic() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'TopicRegistry');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const createTopic = (name: string, parentId: number) => {
     writeContract({
@@ -121,6 +121,24 @@ export function useUserProfile(address?: Address) {
   };
 }
 
+export function useUserName(address?: Address) {
+  const { address: connectedAddress } = useAccount();
+  const userAddress = address || connectedAddress;
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'User');
+
+  const { data: userName } = useReadContract({
+    ...contract,
+    functionName: 'name',
+    args: [userAddress!],
+    query: { enabled: !!userAddress },
+  });
+
+  return {
+    userName: userName as string | undefined,
+  };
+}
+
 export function useUserExpertise(address?: Address, topicId?: number) {
   const { address: connectedAddress } = useAccount();
   const userAddress = address || connectedAddress;
@@ -158,7 +176,7 @@ export function useUserExpertise(address?: Address, topicId?: number) {
 export function useRegisterUser() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'User');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const registerUser = () => {
     writeContract({
@@ -188,7 +206,7 @@ export function useChallenge(challengeId: bigint) {
     ...contract,
     functionName: 'getChallenge',
     args: [challengeId],
-    query: { enabled: challengeId > 0n },
+    query: { enabled: challengeId > BigInt(0) },
   });
 
   return {
@@ -206,7 +224,7 @@ export function useChallengeAttempt(challengeId: bigint, address?: Address) {
     ...contract,
     functionName: 'getUserAttempt',
     args: [challengeId, userAddress!],
-    query: { enabled: challengeId > 0n && !!userAddress },
+    query: { enabled: challengeId > BigInt(0) && !!userAddress },
   });
 
   return {
@@ -251,7 +269,7 @@ export function useUserChallengeHistory(address?: Address) {
 export function useCreateChallenge() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Challenge');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const createChallenge = (
     topicId: number,
@@ -280,8 +298,7 @@ export function useCreateChallenge() {
 export function useAttemptChallenge() {
   const chainId = useChainId();
   const challengeContract = getContract(chainId, 'Challenge');
-  const reputationContract = getContract(chainId, 'ReputationEngine');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const attemptChallenge = async (challengeId: bigint, answerHash: `0x${string}`) => {
     // First attempt the challenge
@@ -313,21 +330,21 @@ export function usePoll(pollId: bigint) {
     ...contract,
     functionName: 'getPoll',
     args: [pollId],
-    query: { enabled: pollId > 0n },
+    query: { enabled: pollId > BigInt(0) },
   });
 
   const { data: options } = useReadContract({
     ...contract,
     functionName: 'getPollOptions',
     args: [pollId],
-    query: { enabled: pollId > 0n },
+    query: { enabled: pollId > BigInt(0) },
   });
 
   const { data: results } = useReadContract({
     ...contract,
     functionName: 'getPollResults',
     args: [pollId],
-    query: { enabled: pollId > 0n },
+    query: { enabled: pollId > BigInt(0) },
   });
 
   return {
@@ -363,7 +380,7 @@ export function useUserVote(pollId: bigint, address?: Address) {
     ...contract,
     functionName: 'getUserVote',
     args: [pollId, userAddress!],
-    query: { enabled: pollId > 0n && !!userAddress },
+    query: { enabled: pollId > BigInt(0) && !!userAddress },
   });
 
   return {
@@ -374,7 +391,7 @@ export function useUserVote(pollId: bigint, address?: Address) {
 export function useCreatePoll() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Poll');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const createPoll = (
     topicId: number,
@@ -403,7 +420,7 @@ export function useCreatePoll() {
 export function useVotePoll() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Poll');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const vote = (pollId: bigint, optionId: number) => {
     writeContract({
@@ -548,7 +565,7 @@ export function useUserGivenRatings(address?: Address) {
 export function useRateUser() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'PeerRating');
-  const { writeContract, data: hash, ...rest } = useWriteContract();
+  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
 
   const rateUser = (ratee: Address, topicId: number, score: number) => {
     writeContract({
