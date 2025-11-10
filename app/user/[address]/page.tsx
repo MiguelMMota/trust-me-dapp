@@ -682,6 +682,27 @@ function TopicScoreRadarChartWithData({
   );
 }
 
+// Helper function to get color based on score with gradient
+function getScoreColor(score: number): string {
+  if (score <= 30) {
+    // Red gradient: bright red at 0, dull/dark red at 30
+    const ratio = score / 30; // 0 at score=0, 1 at score=30
+    const r = Math.round(255 - (255 - 139) * ratio); // 255 -> 139
+    const g = Math.round(0 + (0) * ratio); // 0 -> 0
+    const b = Math.round(0 + (0) * ratio); // 0 -> 0
+    return `rgb(${r}, ${g}, ${b})`;
+  } else if (score >= 70) {
+    // Green gradient: dull/dark green at 70, bright green at 100
+    const ratio = (score - 70) / 30; // 0 at score=70, 1 at score=100
+    const r = Math.round(0 + (0) * ratio); // 0 -> 0
+    const g = Math.round(100 + (255 - 100) * ratio); // 100 -> 255
+    const b = Math.round(0 + (0) * ratio); // 0 -> 0
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  // Default color (inherit from parent) for scores between 31-69
+  return 'inherit';
+}
+
 function TopicScoreItem({
   topicId,
   address
@@ -695,11 +716,14 @@ function TopicScoreItem({
   // Normalize score from 0-1000 to 0-100
   const normalizedScore = (score || 0) / 10;
   const topicName = topic?.name || `Topic ${topicId}`;
+  const scoreColor = getScoreColor(normalizedScore);
 
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="opacity-90 min-w-[140px] text-right">{topicName}</span>
-      <span className="font-bold min-w-[40px]">{normalizedScore.toFixed(0)}</span>
+      <span className="font-bold min-w-[40px]" style={{ color: scoreColor }}>
+        {normalizedScore.toFixed(0)}
+      </span>
     </div>
   );
 }
