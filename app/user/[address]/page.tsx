@@ -112,7 +112,7 @@ export default function UserProfilePage({ params }: PageProps) {
             </p>
             <Link
               href="/dashboard"
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+              className="inline-block px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
             >
               Back to Dashboard
             </Link>

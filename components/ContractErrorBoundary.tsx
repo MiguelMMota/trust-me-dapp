@@ -61,7 +61,7 @@ export class ContractErrorBoundary extends Component<Props, State> {
               </div>
               <button
                 onClick={() => this.setState({ hasError: false, error: null })}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                className="w-full px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
               >
                 Try Again
               </button>
