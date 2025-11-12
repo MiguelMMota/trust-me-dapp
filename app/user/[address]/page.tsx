@@ -285,15 +285,16 @@ function BaseballCard({
             <div className="font-mono text-lg break-all">
               {address.slice(0, 10)}...{address.slice(-8)}
             </div>
-            {profile.name && (
-              <div className="mt-2">
-                <div className="text-sm opacity-75 mb-1">Name</div>
-                <div className="text-xl font-bold">
-                  {profile.name}
-                </div>
-              </div>
-            )}
           </div>
+
+          {profile.name && (
+            <div>
+              <div className="text-sm opacity-75 mb-1">Name</div>
+              <div className="text-xl font-bold">
+                {profile.name}
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="text-sm opacity-75 mb-1">Member Since</div>
