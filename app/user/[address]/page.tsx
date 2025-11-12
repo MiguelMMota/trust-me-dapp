@@ -993,7 +993,7 @@ function FeedbackRow({ rating }: { rating: any }) {
       </td>
       <td className="py-3 px-4">
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-          {rating.score} / 1000
+          {(rating.score / 10).toFixed(1)}%
         </span>
       </td>
       <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
