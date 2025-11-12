@@ -961,6 +961,79 @@ function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
   const { ratings, isLoading } = useUserGivenRatings(userAddress);
+  const [sortColumn, setSortColumn] = useState<'recipient' | 'topic' | 'score' | 'time'>('time');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState({
+    recipient: '',
+    topicId: 0, // 0 means all topics
+    scoreOperator: 'all' as 'all' | '>=' | '<=' | '=' | 'between',
+    scoreValue1: '',
+    scoreValue2: '',
+    timeMode: 'all' as 'all' | 'before' | 'after' | 'between',
+    timeValue1: '',
+    timeValue2: ''
+  });
+  const [topicMap, setTopicMap] = useState<Record<number, string>>({});
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const chainId = useChainId();
+  const topicContract = getContract(chainId, 'TopicRegistry');
+  const userContract = getContract(chainId, 'User');
+
+  // Fetch all topics and profiles for filtering/sorting
+  useEffect(() => {
+    if (!ratings || ratings.length === 0) return;
+
+    const fetchData = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const uniqueTopicIds = [...new Set(ratings.map(r => r.topicId))];
+        const uniqueAddresses = [...new Set(ratings.map(r => r.ratee))];
+
+        const topics = await Promise.all(
+          uniqueTopicIds.map(async (topicId) => {
+            try {
+              const topic = await publicClient.readContract({
+                address: topicContract.address,
+                abi: topicContract.abi,
+                functionName: 'getTopic',
+                args: [topicId],
+              });
+              return { topicId, name: (topic as any)?.name || `Topic #${topicId}` };
+            } catch {
+              return { topicId, name: `Topic #${topicId}` };
+            }
+          })
+        );
+
+        const profiles = await Promise.all(
+          uniqueAddresses.map(async (address) => {
+            try {
+              const profile = await publicClient.readContract({
+                address: userContract.address,
+                abi: userContract.abi,
+                functionName: 'getUserProfile',
+                args: [address],
+              });
+              return { address, name: (profile as any)?.name || 'Anonymous' };
+            } catch {
+              return { address, name: 'Anonymous' };
+            }
+          })
+        );
+
+        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
+        setProfileMap(Object.fromEntries(profiles.map(p => [p.address, p.name])));
+      } catch (error) {
+        console.error('Error fetching data for filtering:', error);
+      }
+    };
+
+    fetchData();
+  }, [ratings, chainId, topicContract.address, topicContract.abi, userContract.address, userContract.abi]);
 
   if (isLoading) {
     return (
@@ -983,27 +1056,253 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
     );
   }
 
+  const handleSort = (column: 'recipient' | 'topic' | 'score' | 'time') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filter and sort ratings
+  const processedRatings = ratings
+    .filter(rating => {
+      // Recipient filter
+      const recipientName = profileMap[rating.ratee] || '';
+      const recipientMatch = !filters.recipient ||
+        rating.ratee.toLowerCase().includes(filters.recipient.toLowerCase()) ||
+        recipientName.toLowerCase().includes(filters.recipient.toLowerCase());
+
+      // Topic filter (dropdown)
+      const topicMatch = filters.topicId === 0 || rating.topicId === filters.topicId;
+
+      // Score filter (numerical operators)
+      let scoreMatch = true;
+      if (filters.scoreOperator !== 'all' && filters.scoreValue1) {
+        const scorePercentage = rating.score / 10;
+        const value1 = parseFloat(filters.scoreValue1);
+
+        switch (filters.scoreOperator) {
+          case '>=':
+            scoreMatch = scorePercentage >= value1;
+            break;
+          case '<=':
+            scoreMatch = scorePercentage <= value1;
+            break;
+          case '=':
+            scoreMatch = Math.abs(scorePercentage - value1) < 0.1;
+            break;
+          case 'between':
+            if (filters.scoreValue2) {
+              const value2 = parseFloat(filters.scoreValue2);
+              scoreMatch = scorePercentage >= value1 && scorePercentage <= value2;
+            }
+            break;
+        }
+      }
+
+      // Time filter (date range)
+      let timeMatch = true;
+      if (filters.timeMode !== 'all') {
+        const ratingDate = new Date(Number(rating.timestamp) * 1000);
+
+        if (filters.timeValue1) {
+          const date1 = new Date(filters.timeValue1);
+
+          switch (filters.timeMode) {
+            case 'before':
+              timeMatch = ratingDate <= date1;
+              break;
+            case 'after':
+              timeMatch = ratingDate >= date1;
+              break;
+            case 'between':
+              if (filters.timeValue2) {
+                const date2 = new Date(filters.timeValue2);
+                timeMatch = ratingDate >= date1 && ratingDate <= date2;
+              }
+              break;
+          }
+        }
+      }
+
+      return recipientMatch && topicMatch && scoreMatch && timeMatch;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'recipient':
+          comparison = a.ratee.localeCompare(b.ratee);
+          break;
+        case 'topic':
+          const topicA = topicMap[a.topicId] || '';
+          const topicB = topicMap[b.topicId] || '';
+          comparison = topicA.localeCompare(topicB);
+          break;
+        case 'score':
+          comparison = a.score - b.score;
+          break;
+        case 'time':
+          comparison = Number(a.timestamp) - Number(b.timestamp);
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200 dark:border-gray-700">
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Recipient
+              <button
+                onClick={() => handleSort('recipient')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Recipient
+                {sortColumn === 'recipient' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Topic
+              <button
+                onClick={() => handleSort('topic')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Topic
+                {sortColumn === 'topic' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Score
+              <button
+                onClick={() => handleSort('score')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Score
+                {sortColumn === 'score' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Time
+              <button
+                onClick={() => handleSort('time')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Time
+                {sortColumn === 'time' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            </th>
+          </tr>
+          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+            <th className="py-2 px-4">
+              <input
+                type="text"
+                placeholder="Filter by address..."
+                value={filters.recipient}
+                onChange={(e) => setFilters({ ...filters, recipient: e.target.value })}
+                className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </th>
+            <th className="py-2 px-4">
+              <select
+                value={filters.topicId}
+                onChange={(e) => setFilters({ ...filters, topicId: parseInt(e.target.value) })}
+                className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value={0}>All Topics</option>
+                {Object.entries(topicMap).map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </th>
+            <th className="py-2 px-4">
+              <div className="flex gap-1">
+                <select
+                  value={filters.scoreOperator}
+                  onChange={(e) => setFilters({ ...filters, scoreOperator: e.target.value as any })}
+                  className="w-16 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All</option>
+                  <option value=">=">&gt;=</option>
+                  <option value="<=">&lt;=</option>
+                  <option value="=">=</option>
+                  <option value="between">Between</option>
+                </select>
+                {filters.scoreOperator !== 'all' && (
+                  <>
+                    <input
+                      type="number"
+                      placeholder="0-100"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={filters.scoreValue1}
+                      onChange={(e) => setFilters({ ...filters, scoreValue1: e.target.value })}
+                      className="flex-1 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    />
+                    {filters.scoreOperator === 'between' && (
+                      <input
+                        type="number"
+                        placeholder="0-100"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={filters.scoreValue2}
+                        onChange={(e) => setFilters({ ...filters, scoreValue2: e.target.value })}
+                        className="flex-1 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </th>
+            <th className="py-2 px-4">
+              <div className="flex flex-col gap-1">
+                <select
+                  value={filters.timeMode}
+                  onChange={(e) => setFilters({ ...filters, timeMode: e.target.value as any })}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All Time</option>
+                  <option value="before">Before</option>
+                  <option value="after">After</option>
+                  <option value="between">Between</option>
+                </select>
+                {filters.timeMode !== 'all' && (
+                  <>
+                    <input
+                      type="datetime-local"
+                      value={filters.timeValue1}
+                      onChange={(e) => setFilters({ ...filters, timeValue1: e.target.value })}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    />
+                    {filters.timeMode === 'between' && (
+                      <input
+                        type="datetime-local"
+                        value={filters.timeValue2}
+                        onChange={(e) => setFilters({ ...filters, timeValue2: e.target.value })}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </th>
           </tr>
         </thead>
         <tbody>
-          {ratings.map((rating, index) => (
+          {processedRatings.map((rating, index) => (
             <FeedbackGivenRow key={`${rating.ratee}-${rating.topicId}-${index}`} rating={rating} />
           ))}
         </tbody>
@@ -1014,6 +1313,79 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }) {
   const { ratings, isLoading } = useUserReceivedRatings(userAddress);
+  const [sortColumn, setSortColumn] = useState<'from' | 'topic' | 'score' | 'time'>('time');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState({
+    from: '',
+    topicId: 0, // 0 means all topics
+    scoreOperator: 'all' as 'all' | '>=' | '<=' | '=' | 'between',
+    scoreValue1: '',
+    scoreValue2: '',
+    timeMode: 'all' as 'all' | 'before' | 'after' | 'between',
+    timeValue1: '',
+    timeValue2: ''
+  });
+  const [topicMap, setTopicMap] = useState<Record<number, string>>({});
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const chainId = useChainId();
+  const topicContract = getContract(chainId, 'TopicRegistry');
+  const userContract = getContract(chainId, 'User');
+
+  // Fetch all topics and profiles for filtering/sorting
+  useEffect(() => {
+    if (!ratings || ratings.length === 0) return;
+
+    const fetchData = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const uniqueTopicIds = [...new Set(ratings.map(r => r.topicId))];
+        const uniqueAddresses = [...new Set(ratings.map(r => r.rater))];
+
+        const topics = await Promise.all(
+          uniqueTopicIds.map(async (topicId) => {
+            try {
+              const topic = await publicClient.readContract({
+                address: topicContract.address,
+                abi: topicContract.abi,
+                functionName: 'getTopic',
+                args: [topicId],
+              });
+              return { topicId, name: (topic as any)?.name || `Topic #${topicId}` };
+            } catch {
+              return { topicId, name: `Topic #${topicId}` };
+            }
+          })
+        );
+
+        const profiles = await Promise.all(
+          uniqueAddresses.map(async (address) => {
+            try {
+              const profile = await publicClient.readContract({
+                address: userContract.address,
+                abi: userContract.abi,
+                functionName: 'getUserProfile',
+                args: [address],
+              });
+              return { address, name: (profile as any)?.name || 'Anonymous' };
+            } catch {
+              return { address, name: 'Anonymous' };
+            }
+          })
+        );
+
+        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
+        setProfileMap(Object.fromEntries(profiles.map(p => [p.address, p.name])));
+      } catch (error) {
+        console.error('Error fetching data for filtering:', error);
+      }
+    };
+
+    fetchData();
+  }, [ratings, chainId, topicContract.address, topicContract.abi, userContract.address, userContract.abi]);
 
   if (isLoading) {
     return (
@@ -1036,27 +1408,253 @@ function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }
     );
   }
 
+  const handleSort = (column: 'from' | 'topic' | 'score' | 'time') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filter and sort ratings
+  const processedRatings = ratings
+    .filter(rating => {
+      // From filter
+      const raterName = profileMap[rating.rater] || '';
+      const fromMatch = !filters.from ||
+        rating.rater.toLowerCase().includes(filters.from.toLowerCase()) ||
+        raterName.toLowerCase().includes(filters.from.toLowerCase());
+
+      // Topic filter (dropdown)
+      const topicMatch = filters.topicId === 0 || rating.topicId === filters.topicId;
+
+      // Score filter (numerical operators)
+      let scoreMatch = true;
+      if (filters.scoreOperator !== 'all' && filters.scoreValue1) {
+        const scorePercentage = rating.score / 10;
+        const value1 = parseFloat(filters.scoreValue1);
+
+        switch (filters.scoreOperator) {
+          case '>=':
+            scoreMatch = scorePercentage >= value1;
+            break;
+          case '<=':
+            scoreMatch = scorePercentage <= value1;
+            break;
+          case '=':
+            scoreMatch = Math.abs(scorePercentage - value1) < 0.1;
+            break;
+          case 'between':
+            if (filters.scoreValue2) {
+              const value2 = parseFloat(filters.scoreValue2);
+              scoreMatch = scorePercentage >= value1 && scorePercentage <= value2;
+            }
+            break;
+        }
+      }
+
+      // Time filter (date range)
+      let timeMatch = true;
+      if (filters.timeMode !== 'all') {
+        const ratingDate = new Date(Number(rating.timestamp) * 1000);
+
+        if (filters.timeValue1) {
+          const date1 = new Date(filters.timeValue1);
+
+          switch (filters.timeMode) {
+            case 'before':
+              timeMatch = ratingDate <= date1;
+              break;
+            case 'after':
+              timeMatch = ratingDate >= date1;
+              break;
+            case 'between':
+              if (filters.timeValue2) {
+                const date2 = new Date(filters.timeValue2);
+                timeMatch = ratingDate >= date1 && ratingDate <= date2;
+              }
+              break;
+          }
+        }
+      }
+
+      return fromMatch && topicMatch && scoreMatch && timeMatch;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'from':
+          comparison = a.rater.localeCompare(b.rater);
+          break;
+        case 'topic':
+          const topicA = topicMap[a.topicId] || '';
+          const topicB = topicMap[b.topicId] || '';
+          comparison = topicA.localeCompare(topicB);
+          break;
+        case 'score':
+          comparison = a.score - b.score;
+          break;
+        case 'time':
+          comparison = Number(a.timestamp) - Number(b.timestamp);
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200 dark:border-gray-700">
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              From
+              <button
+                onClick={() => handleSort('from')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                From
+                {sortColumn === 'from' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Topic
+              <button
+                onClick={() => handleSort('topic')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Topic
+                {sortColumn === 'topic' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Score
+              <button
+                onClick={() => handleSort('score')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Score
+                {sortColumn === 'score' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
             </th>
             <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-              Time
+              <button
+                onClick={() => handleSort('time')}
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                Time
+                {sortColumn === 'time' && (
+                  <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            </th>
+          </tr>
+          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+            <th className="py-2 px-4">
+              <input
+                type="text"
+                placeholder="Filter by address..."
+                value={filters.from}
+                onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+                className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+            </th>
+            <th className="py-2 px-4">
+              <select
+                value={filters.topicId}
+                onChange={(e) => setFilters({ ...filters, topicId: parseInt(e.target.value) })}
+                className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value={0}>All Topics</option>
+                {Object.entries(topicMap).map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </th>
+            <th className="py-2 px-4">
+              <div className="flex gap-1">
+                <select
+                  value={filters.scoreOperator}
+                  onChange={(e) => setFilters({ ...filters, scoreOperator: e.target.value as any })}
+                  className="w-16 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All</option>
+                  <option value=">=">&gt;=</option>
+                  <option value="<=">&lt;=</option>
+                  <option value="=">=</option>
+                  <option value="between">Between</option>
+                </select>
+                {filters.scoreOperator !== 'all' && (
+                  <>
+                    <input
+                      type="number"
+                      placeholder="0-100"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={filters.scoreValue1}
+                      onChange={(e) => setFilters({ ...filters, scoreValue1: e.target.value })}
+                      className="flex-1 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    />
+                    {filters.scoreOperator === 'between' && (
+                      <input
+                        type="number"
+                        placeholder="0-100"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={filters.scoreValue2}
+                        onChange={(e) => setFilters({ ...filters, scoreValue2: e.target.value })}
+                        className="flex-1 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </th>
+            <th className="py-2 px-4">
+              <div className="flex flex-col gap-1">
+                <select
+                  value={filters.timeMode}
+                  onChange={(e) => setFilters({ ...filters, timeMode: e.target.value as any })}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All Time</option>
+                  <option value="before">Before</option>
+                  <option value="after">After</option>
+                  <option value="between">Between</option>
+                </select>
+                {filters.timeMode !== 'all' && (
+                  <>
+                    <input
+                      type="datetime-local"
+                      value={filters.timeValue1}
+                      onChange={(e) => setFilters({ ...filters, timeValue1: e.target.value })}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    />
+                    {filters.timeMode === 'between' && (
+                      <input
+                        type="datetime-local"
+                        value={filters.timeValue2}
+                        onChange={(e) => setFilters({ ...filters, timeValue2: e.target.value })}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </th>
           </tr>
         </thead>
         <tbody>
-          {ratings.map((rating, index) => (
+          {processedRatings.map((rating, index) => (
             <FeedbackReceivedRow key={`${rating.rater}-${rating.topicId}-${index}`} rating={rating} />
           ))}
         </tbody>
