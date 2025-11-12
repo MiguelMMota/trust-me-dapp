@@ -5,12 +5,12 @@
  * Update the addresses after deployment to Sepolia or other networks.
  */
 
-import TopicRegistryABI from '@/abis/contracts/TopicRegistry.sol/TopicRegistry.json';
-import UserABI from '@/abis/contracts/User.sol/User.json';
-import ChallengeABI from '@/abis/contracts/Challenge.sol/Challenge.json';
-import ReputationEngineABI from '@/abis/contracts/ReputationEngine.sol/ReputationEngine.json';
-import PollABI from '@/abis/contracts/Poll.sol/Poll.json';
-import PeerRatingABI from '@/abis/contracts/PeerRating.sol/PeerRating.json';
+import ChallengeABI from '@/abis/contracts/Challenge.json';
+import PeerRatingABI from '@/abis/contracts/PeerRating.json';
+import PollABI from '@/abis/contracts/Poll.json';
+import ReputationEngineABI from '@/abis/contracts/ReputationEngine.json';
+import TopicRegistryABI from '@/abis/contracts/TopicRegistry.json';
+import UserABI from '@/abis/contracts/User.json';
 import { ANVIL_CONTRACTS } from './anvil';
 import { SEPOLIA_CONTRACTS } from './sepolia';
 
