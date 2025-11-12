@@ -13,6 +13,7 @@ import {
   useTopics,
   useUserGivenRatings,
   useChainId,
+  useRateUser,
 } from '@/hooks/useContracts';
 import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
@@ -191,6 +192,11 @@ export default function UserProfilePage({ params }: PageProps) {
               />
             </div>
           </div>
+
+          {/* Give Feedback Section - Only show if wallet is connected and not viewing own profile */}
+          {isConnected && connectedAddress && connectedAddress.toLowerCase() !== address.toLowerCase() && (
+            <GiveFeedbackSection userAddress={address as `0x${string}`} />
+          )}
 
           {/* Activity Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
@@ -1011,5 +1017,209 @@ function FeedbackRow({ rating }: { rating: any }) {
         </span>
       </td>
     </tr>
+  );
+}
+
+function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTopicId, setSelectedTopicId] = useState<number>(0);
+  const [rating, setRating] = useState<string>('');
+  const { rootTopicIds, topicCount } = useTopics();
+  const [allTopics, setAllTopics] = useState<Array<{ id: number; name: string; depth: number }>>([]);
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+  const { rateUser, isConfirming, isSuccess, isPending } = useRateUser();
+
+  // Fetch all topics for the dropdown
+  useEffect(() => {
+    if (!topicCount || topicCount === 0) {
+      setAllTopics([]);
+      return;
+    }
+
+    const fetchTopics = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
+        const topicsData = await Promise.all(
+          allTopicIds.map(async (id) => {
+            try {
+              const topic = await publicClient.readContract({
+                address: contract.address,
+                abi: contract.abi,
+                functionName: 'getTopic',
+                args: [id],
+              });
+
+              return { id, topic };
+            } catch (error) {
+              console.error(`Error fetching topic ${id}:`, error);
+              return { id, topic: null };
+            }
+          })
+        );
+
+        // Build hierarchical structure
+        const buildHierarchy = (parentId: number, depth: number = 0): Array<{ id: number; name: string; depth: number }> => {
+          const children = topicsData
+            .filter(t => t.topic && (t.topic as any).parentId === parentId)
+            .sort((a, b) => a.id - b.id);
+
+          const result: Array<{ id: number; name: string; depth: number }> = [];
+          for (const child of children) {
+            const topic = child.topic as any;
+            result.push({
+              id: child.id,
+              name: topic.name || `Topic ${child.id}`,
+              depth,
+            });
+            result.push(...buildHierarchy(child.id, depth + 1));
+          }
+          return result;
+        };
+
+        const hierarchical = buildHierarchy(0);
+        setAllTopics(hierarchical);
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+        setAllTopics([]);
+      }
+    };
+
+    fetchTopics();
+  }, [topicCount, chainId, contract.address, contract.abi]);
+
+  // Reset form when modal is opened
+  useEffect(() => {
+    if (isModalOpen) {
+      setSelectedTopicId(0);
+      setRating('');
+    }
+  }, [isModalOpen]);
+
+  // Close modal on success
+  useEffect(() => {
+    if (isSuccess) {
+      setIsModalOpen(false);
+      setSelectedTopicId(0);
+      setRating('');
+    }
+  }, [isSuccess]);
+
+  const handleSubmit = () => {
+    if (selectedTopicId === 0) {
+      alert('Please select a topic');
+      return;
+    }
+
+    const ratingValue = parseFloat(rating);
+    if (isNaN(ratingValue) || ratingValue < 0 || ratingValue > 100) {
+      alert('Please enter a valid rating between 0 and 100');
+      return;
+    }
+
+    // Convert percentage to score (multiply by 10 and round)
+    const score = Math.round(ratingValue * 10);
+
+    rateUser(userAddress, selectedTopicId, score);
+  };
+
+  return (
+    <>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Give Feedback</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Rate this user's expertise in a specific topic
+            </p>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
+          >
+            Give Feedback
+          </button>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => !isConfirming && !isPending && setIsModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6">
+              <h3 className="text-xl font-bold mb-4">Give Feedback</h3>
+
+              {/* Topic Selection */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Topic
+                </label>
+                <select
+                  value={selectedTopicId}
+                  onChange={(e) => setSelectedTopicId(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                  disabled={isConfirming || isPending}
+                >
+                  <option value={0}>Select a topic...</option>
+                  {allTopics.map(({ id, name, depth }) => (
+                    <option key={id} value={id}>
+                      {'\u00A0'.repeat(depth * 4)}{name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rating Input */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Rating (0-100%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={rating}
+                  onChange={(e) => setRating(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                  placeholder="Enter rating (e.g., 75.5)"
+                  disabled={isConfirming || isPending}
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  disabled={isConfirming || isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isConfirming || isPending}
+                >
+                  {isConfirming || isPending ? 'Submitting...' : 'Submit'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
