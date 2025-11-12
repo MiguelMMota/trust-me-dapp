@@ -279,7 +279,7 @@ function BaseballCard({
   }, [rootTopicIds, hasInitialized]);
 
   // TODO: remove this log
-  console.log(`Username: ${profile.name}`);
+  console.log(`Username: ${profile?.name}`);
 
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
@@ -293,7 +293,7 @@ function BaseballCard({
             </div>
           </div>
 
-          {profile.name && (
+          {profile?.name && (
             <div>
               <div className="text-sm opacity-75 mb-1">Name</div>
               <div className="text-xl font-bold">
@@ -1210,7 +1210,7 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isConfirming || isPending}
                 >
                   {isConfirming || isPending ? 'Submitting...' : 'Submit'}
