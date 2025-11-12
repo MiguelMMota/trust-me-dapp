@@ -12,6 +12,7 @@ import {
   useChallengeAttempt,
   useTopics,
   useUserGivenRatings,
+  useUserReceivedRatings,
   useChainId,
   useRateUser,
 } from '@/hooks/useContracts';
@@ -919,6 +920,46 @@ function PollsTab({ userAddress: _userAddress }: { userAddress: `0x${string}` })
 }
 
 function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
+  const [feedbackTab, setFeedbackTab] = useState<'given' | 'received'>('given');
+
+  return (
+    <div>
+      {/* Sub-tabs for Feedback Given and Feedback Received */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+        <button
+          onClick={() => setFeedbackTab('given')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            feedbackTab === 'given'
+              ? 'border-b-2 border-green-600 text-green-600'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          Feedback Given
+        </button>
+        <button
+          onClick={() => setFeedbackTab('received')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            feedbackTab === 'received'
+              ? 'border-b-2 border-green-600 text-green-600'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+          }`}
+        >
+          Feedback Received
+        </button>
+      </div>
+
+      {/* Sub-tab Content */}
+      {feedbackTab === 'given' && (
+        <FeedbackGivenContent userAddress={userAddress} />
+      )}
+      {feedbackTab === 'received' && (
+        <FeedbackReceivedContent userAddress={userAddress} />
+      )}
+    </div>
+  );
+}
+
+function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
   const { ratings, isLoading } = useUserGivenRatings(userAddress);
 
   if (isLoading) {
@@ -943,38 +984,88 @@ function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
   }
 
   return (
-    <div>
-      <h3 className="text-lg font-bold mb-4">Feedback Given</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                Recipient
-              </th>
-              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                Topic
-              </th>
-              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                Score
-              </th>
-              <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
-                Time
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {ratings.map((rating, index) => (
-              <FeedbackRow key={`${rating.ratee}-${rating.topicId}-${index}`} rating={rating} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Recipient
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Topic
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Score
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Time
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {ratings.map((rating, index) => (
+            <FeedbackGivenRow key={`${rating.ratee}-${rating.topicId}-${index}`} rating={rating} />
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function FeedbackRow({ rating }: { rating: any }) {
+function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }) {
+  const { ratings, isLoading } = useUserReceivedRatings(userAddress);
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/4 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!ratings || ratings.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600 dark:text-gray-400">
+          No feedback received yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              From
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Topic
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Score
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Time
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {ratings.map((rating, index) => (
+            <FeedbackReceivedRow key={`${rating.rater}-${rating.topicId}-${index}`} rating={rating} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FeedbackGivenRow({ rating }: { rating: any }) {
   const { topic } = useTopic(rating.topicId);
   const { profile } = useUserProfile(rating.ratee as `0x${string}`);
   const ratingDate = new Date(Number(rating.timestamp) * 1000);
@@ -1020,11 +1111,57 @@ function FeedbackRow({ rating }: { rating: any }) {
   );
 }
 
+function FeedbackReceivedRow({ rating }: { rating: any }) {
+  const { topic } = useTopic(rating.topicId);
+  const { profile } = useUserProfile(rating.rater as `0x${string}`);
+  const ratingDate = new Date(Number(rating.timestamp) * 1000);
+
+  return (
+    <tr className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          href={`/user/${rating.rater}`}
+          className="text-sm hover:underline"
+        >
+          <div className="font-medium text-gray-900 dark:text-gray-100">
+            {profile?.name || 'Anonymous'}
+          </div>
+          <div className="font-mono text-xs text-blue-600 dark:text-blue-400">
+            {rating.rater.slice(0, 8)}...{rating.rater.slice(-6)}
+          </div>
+        </Link>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
+        {topic?.name || `Topic #${rating.topicId}`}
+      </td>
+      <td className="py-3 px-4">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+          {(rating.score / 10).toFixed(1)}%
+        </span>
+      </td>
+      <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+        {ratingDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })}
+        <br />
+        <span className="text-xs">
+          {ratingDate.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTopicId, setSelectedTopicId] = useState<number>(0);
   const [rating, setRating] = useState<string>('');
-  const { rootTopicIds, topicCount } = useTopics();
+  const { topicCount } = useTopics();
   const [allTopics, setAllTopics] = useState<Array<{ id: number; name: string; depth: number }>>([]);
   const chainId = useChainId();
   const contract = getContract(chainId, 'TopicRegistry');
