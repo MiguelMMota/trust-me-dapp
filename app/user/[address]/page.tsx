@@ -13,7 +13,6 @@ import {
   useTopics,
   useUserGivenRatings,
   useChainId,
-  useUserName
 } from '@/hooks/useContracts';
 import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
@@ -262,7 +261,6 @@ function BaseballCard({
   userTopicIds: number[];
 }) {
   const { rootTopicIds, topicCount } = useTopics();
-  const { userName } = useUserName(address);
   const [selectedTopicIds, setSelectedTopicIds] = useState<number[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -274,25 +272,27 @@ function BaseballCard({
     }
   }, [rootTopicIds, hasInitialized]);
 
+  // TODO: remove this log
+  console.log(`Username: ${profile.name}`);
+
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
       <div className="grid md:grid-cols-2 gap-8">
         {/* Left Side - User Info */}
         <div className="space-y-6">
-          {userName && (
-            <div>
-              <div className="text-sm opacity-75 mb-1">Name</div>
-              <div className="text-2xl font-bold">
-                {userName}
-              </div>
-            </div>
-          )}
-
           <div>
             <div className="text-sm opacity-75 mb-1">Address</div>
             <div className="font-mono text-lg break-all">
               {address.slice(0, 10)}...{address.slice(-8)}
             </div>
+            {profile.name && (
+              <div className="mt-2">
+                <div className="text-sm opacity-75 mb-1">Name</div>
+                <div className="text-xl font-bold">
+                  {profile.name}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -625,7 +625,7 @@ function TopicScoreRadarChartWithData({
                 publicClient.readContract({
                   address: userContract.address,
                   abi: userContract.abi,
-                  functionName: 'getUserTopicScore',
+                  functionName: 'getUserScore',
                   args: [address, topicId],
                 }),
               ]);
@@ -969,7 +969,7 @@ function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackRow({ rating }: { rating: any }) {
   const { topic } = useTopic(rating.topicId);
-  const { userName } = useUserName(rating.ratee as `0x${string}`);
+  const { profile } = useUserProfile(rating.ratee as `0x${string}`);
   const ratingDate = new Date(Number(rating.timestamp) * 1000);
 
   return (
@@ -980,7 +980,7 @@ function FeedbackRow({ rating }: { rating: any }) {
           className="text-sm hover:underline"
         >
           <div className="font-medium text-gray-900 dark:text-gray-100">
-            {userName || 'Anonymous'}
+            {profile?.name || 'Anonymous'}
           </div>
           <div className="font-mono text-xs text-blue-600 dark:text-blue-400">
             {rating.ratee.slice(0, 8)}...{rating.ratee.slice(-6)}

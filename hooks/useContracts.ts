@@ -121,24 +121,6 @@ export function useUserProfile(address?: Address) {
   };
 }
 
-export function useUserName(address?: Address) {
-  const { address: connectedAddress } = useAccount();
-  const userAddress = address || connectedAddress;
-  const chainId = useChainId();
-  const contract = getContract(chainId, 'User');
-
-  const { data: userName } = useReadContract({
-    ...contract,
-    functionName: 'name',
-    args: [userAddress!],
-    query: { enabled: !!userAddress },
-  });
-
-  return {
-    userName: userName as string | undefined,
-  };
-}
-
 export function useUserExpertise(address?: Address, topicId?: number) {
   const { address: connectedAddress } = useAccount();
   const userAddress = address || connectedAddress;
