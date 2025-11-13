@@ -973,6 +973,7 @@ function FeedbackTab({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
   const { ratings, isLoading } = useUserGivenRatings(userAddress);
+  const { topicCount } = useTopics();
   const [sortColumn, setSortColumn] = useState<'recipient' | 'topic' | 'score' | 'time'>('time');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
@@ -991,22 +992,23 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
   const topicContract = getContract(chainId, 'TopicRegistry');
   const userContract = getContract(chainId, 'User');
 
-  // Fetch all topics and profiles for filtering/sorting
+  // Fetch all topics for filtering dropdown
   useEffect(() => {
-    if (!ratings || ratings.length === 0) return;
+    if (!topicCount || topicCount === 0) {
+      setTopicMap({});
+      return;
+    }
 
-    const fetchData = async () => {
+    const fetchAllTopics = async () => {
       try {
         const publicClient = createPublicClient({
           chain: chainId === 11155111 ? sepolia : hardhat,
           transport: http(),
         });
 
-        const uniqueTopicIds = [...new Set(ratings.map(r => r.topicId))];
-        const uniqueAddresses = [...new Set(ratings.map(r => r.ratee))];
-
+        const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
         const topics = await Promise.all(
-          uniqueTopicIds.map(async (topicId) => {
+          allTopicIds.map(async (topicId) => {
             try {
               const topic = await publicClient.readContract({
                 address: topicContract.address,
@@ -1020,6 +1022,28 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
             }
           })
         );
+
+        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    };
+
+    fetchAllTopics();
+  }, [topicCount, chainId, topicContract.address, topicContract.abi]);
+
+  // Fetch profiles for display
+  useEffect(() => {
+    if (!ratings || ratings.length === 0) return;
+
+    const fetchProfiles = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const uniqueAddresses = [...new Set(ratings.map(r => r.ratee))];
 
         const profiles = await Promise.all(
           uniqueAddresses.map(async (address) => {
@@ -1037,15 +1061,14 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
           })
         );
 
-        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
         setProfileMap(Object.fromEntries(profiles.map(p => [p.address, p.name])));
       } catch (error) {
-        console.error('Error fetching data for filtering:', error);
+        console.error('Error fetching profiles:', error);
       }
     };
 
-    fetchData();
-  }, [ratings, chainId, topicContract.address, topicContract.abi, userContract.address, userContract.abi]);
+    fetchProfiles();
+  }, [ratings, chainId, userContract.address, userContract.abi]);
 
   if (isLoading) {
     return (
@@ -1325,6 +1348,7 @@ function FeedbackGivenContent({ userAddress }: { userAddress: `0x${string}` }) {
 
 function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }) {
   const { ratings, isLoading } = useUserReceivedRatings(userAddress);
+  const { topicCount } = useTopics();
   const [sortColumn, setSortColumn] = useState<'from' | 'topic' | 'score' | 'time'>('time');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
@@ -1343,22 +1367,23 @@ function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }
   const topicContract = getContract(chainId, 'TopicRegistry');
   const userContract = getContract(chainId, 'User');
 
-  // Fetch all topics and profiles for filtering/sorting
+  // Fetch all topics for filtering dropdown
   useEffect(() => {
-    if (!ratings || ratings.length === 0) return;
+    if (!topicCount || topicCount === 0) {
+      setTopicMap({});
+      return;
+    }
 
-    const fetchData = async () => {
+    const fetchAllTopics = async () => {
       try {
         const publicClient = createPublicClient({
           chain: chainId === 11155111 ? sepolia : hardhat,
           transport: http(),
         });
 
-        const uniqueTopicIds = [...new Set(ratings.map(r => r.topicId))];
-        const uniqueAddresses = [...new Set(ratings.map(r => r.rater))];
-
+        const allTopicIds = Array.from({ length: topicCount }, (_, i) => i + 1);
         const topics = await Promise.all(
-          uniqueTopicIds.map(async (topicId) => {
+          allTopicIds.map(async (topicId) => {
             try {
               const topic = await publicClient.readContract({
                 address: topicContract.address,
@@ -1372,6 +1397,28 @@ function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }
             }
           })
         );
+
+        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    };
+
+    fetchAllTopics();
+  }, [topicCount, chainId, topicContract.address, topicContract.abi]);
+
+  // Fetch profiles for display
+  useEffect(() => {
+    if (!ratings || ratings.length === 0) return;
+
+    const fetchProfiles = async () => {
+      try {
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const uniqueAddresses = [...new Set(ratings.map(r => r.rater))];
 
         const profiles = await Promise.all(
           uniqueAddresses.map(async (address) => {
@@ -1389,15 +1436,14 @@ function FeedbackReceivedContent({ userAddress }: { userAddress: `0x${string}` }
           })
         );
 
-        setTopicMap(Object.fromEntries(topics.map(t => [t.topicId, t.name])));
         setProfileMap(Object.fromEntries(profiles.map(p => [p.address, p.name])));
       } catch (error) {
-        console.error('Error fetching data for filtering:', error);
+        console.error('Error fetching profiles:', error);
       }
     };
 
-    fetchData();
-  }, [ratings, chainId, topicContract.address, topicContract.abi, userContract.address, userContract.abi]);
+    fetchProfiles();
+  }, [ratings, chainId, userContract.address, userContract.abi]);
 
   if (isLoading) {
     return (
