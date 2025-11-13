@@ -296,7 +296,7 @@ function BaseballCard({
 
   return (
     <div className="bg-gradient-to-br from-slate-700 via-slate-600 to-slate-500 p-6 md:p-8 rounded-2xl shadow-2xl text-white mb-8">
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-[1fr_2fr] gap-8">
         {/* Left Side - User Info */}
         <div className="space-y-6">
           <div>
@@ -589,7 +589,7 @@ function TopicScoreRadarChart({
   selectedTopicIds: number[];
 }) {
   return (
-    <div className="h-64 flex-1 min-w-0">
+    <div className="h-80 flex-1 min-w-0">
       {selectedTopicIds.length > 0 ? (
         selectedTopicIds.length <= MAX_TOPICS_SELECTED ? (
           // For reasonable number of topics, render individual data fetchers
@@ -610,6 +610,45 @@ function TopicScoreRadarChart({
     </div>
   );
 }
+
+// Custom tick component for radar chart labels
+const CustomTick = ({ payload, x, y, textAnchor, stroke }: any) => {
+  const text = payload.value;
+  const words = text.split(' ');
+
+  // If it's a short single word or two short words, display normally
+  if (words.length === 1 || (words.length === 2 && text.length <= 12)) {
+    return (
+      <text
+        x={x}
+        y={y}
+        textAnchor={textAnchor}
+        fill="#ffffff"
+        fontSize={10}
+      >
+        {text}
+      </text>
+    );
+  }
+
+  // For longer multi-word names, split into lines
+  const midpoint = Math.ceil(words.length / 2);
+  const line1 = words.slice(0, midpoint).join(' ');
+  const line2 = words.slice(midpoint).join(' ');
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={textAnchor}
+      fill="#ffffff"
+      fontSize={9}
+    >
+      <tspan x={x} dy="-0.5em">{line1}</tspan>
+      <tspan x={x} dy="1.2em">{line2}</tspan>
+    </text>
+  );
+};
 
 // Helper component to render radar chart - fetches data using direct contract calls
 function TopicScoreRadarChartWithData({
@@ -694,7 +733,7 @@ function TopicScoreRadarChartWithData({
         <PolarGrid stroke="#ffffff40" />
         <PolarAngleAxis
           dataKey="topic"
-          tick={{ fill: '#ffffff', fontSize: 12 }}
+          tick={<CustomTick />}
         />
         <PolarRadiusAxis
           angle={90}
