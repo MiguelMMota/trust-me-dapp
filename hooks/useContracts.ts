@@ -64,7 +64,14 @@ export function useTopic(topicId: number) {
 export function useCreateTopic() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'TopicRegistry');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const createTopic = (name: string, parentId: number) => {
     writeContract({
@@ -74,13 +81,19 @@ export function useCreateTopic() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     createTopic,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -158,7 +171,14 @@ export function useUserExpertise(address?: Address, topicId?: number) {
 export function useRegisterUser() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'User');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const registerUser = () => {
     writeContract({
@@ -167,13 +187,19 @@ export function useRegisterUser() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     registerUser,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -251,7 +277,14 @@ export function useUserChallengeHistory(address?: Address) {
 export function useCreateChallenge() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Challenge');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const createChallenge = (
     topicId: number,
@@ -266,13 +299,19 @@ export function useCreateChallenge() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     createChallenge,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -280,24 +319,36 @@ export function useCreateChallenge() {
 export function useAttemptChallenge() {
   const chainId = useChainId();
   const challengeContract = getContract(chainId, 'Challenge');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
-  const attemptChallenge = async (challengeId: bigint, answerHash: `0x${string}`) => {
-    // First attempt the challenge
-    await writeContract({
+  const attemptChallenge = (challengeId: bigint, answerHash: `0x${string}`) => {
+    writeContract({
       ...challengeContract,
       functionName: 'attemptChallenge',
       args: [challengeId, answerHash],
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     attemptChallenge,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -373,7 +424,14 @@ export function useUserVote(pollId: bigint, address?: Address) {
 export function useCreatePoll() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Poll');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const createPoll = (
     topicId: number,
@@ -388,13 +446,19 @@ export function useCreatePoll() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     createPoll,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -402,7 +466,14 @@ export function useCreatePoll() {
 export function useVotePoll() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'Poll');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const vote = (pollId: bigint, optionId: number) => {
     writeContract({
@@ -412,13 +483,19 @@ export function useVotePoll() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     vote,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }
@@ -435,7 +512,7 @@ export interface PeerRating {
 }
 
 export function useUserGivenRatings(address?: Address) {
-  const { address: connectedAddress, chain } = useAccount();
+  const { address: connectedAddress } = useAccount();
   const userAddress = address || connectedAddress;
   const chainId = useChainId();
   const contract = getContract(chainId, 'PeerRating');
@@ -545,7 +622,7 @@ export function useUserGivenRatings(address?: Address) {
 }
 
 export function useUserReceivedRatings(address?: Address) {
-  const { address: connectedAddress, chain } = useAccount();
+  const { address: connectedAddress } = useAccount();
   const userAddress = address || connectedAddress;
   const chainId = useChainId();
   const contract = getContract(chainId, 'PeerRating');
@@ -657,7 +734,14 @@ export function useUserReceivedRatings(address?: Address) {
 export function useRateUser() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'PeerRating');
-  const { writeContract, data: hash, isSuccess: _, ...rest } = useWriteContract();
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
 
   const rateUser = (ratee: Address, topicId: number, score: number) => {
     writeContract({
@@ -667,13 +751,19 @@ export function useRateUser() {
     });
   };
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
 
   return {
     rateUser,
     hash,
+    isPending,
     isConfirming,
     isSuccess,
+    error: writeError || receiptError,
     ...rest,
   };
 }

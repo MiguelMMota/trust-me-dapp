@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useContracts';
 import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
+import { getRatingErrorMessage } from '@/lib/errors';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
@@ -1856,11 +1857,12 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTopicId, setSelectedTopicId] = useState<number>(0);
   const [rating, setRating] = useState<string>('');
+  const [validationError, setValidationError] = useState<string>('');
   const { topicCount } = useTopics();
   const [allTopics, setAllTopics] = useState<Array<{ id: number; name: string; depth: number }>>([]);
   const chainId = useChainId();
   const contract = getContract(chainId, 'TopicRegistry');
-  const { rateUser, isConfirming, isSuccess, isPending } = useRateUser();
+  const { rateUser, isConfirming, isSuccess, isPending, error } = useRateUser();
 
   // Fetch all topics for the dropdown
   useEffect(() => {
@@ -1930,6 +1932,7 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
     if (isModalOpen) {
       setSelectedTopicId(0);
       setRating('');
+      setValidationError('');
     }
   }, [isModalOpen]);
 
@@ -1943,14 +1946,17 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
   }, [isSuccess]);
 
   const handleSubmit = () => {
+    // Clear previous validation error
+    setValidationError('');
+
     if (selectedTopicId === 0) {
-      alert('Please select a topic');
+      setValidationError('Please select a topic');
       return;
     }
 
     const ratingValue = parseFloat(rating);
     if (isNaN(ratingValue) || ratingValue < 0 || ratingValue > 100) {
-      alert('Please enter a valid rating between 0 and 100');
+      setValidationError('Please enter a valid rating between 0 and 100');
       return;
     }
 
@@ -2014,7 +2020,7 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
               </div>
 
               {/* Rating Input */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-sm font-medium mb-2">
                   Rating (0-100%)
                 </label>
@@ -2030,6 +2036,15 @@ function GiveFeedbackSection({ userAddress }: { userAddress: `0x${string}` }) {
                   disabled={isConfirming || isPending}
                 />
               </div>
+
+              {/* Error Messages */}
+              {(validationError || error) && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {validationError || getRatingErrorMessage(error)}
+                  </p>
+                </div>
+              )}
 
               {/* Buttons */}
               <div className="flex gap-3 justify-end">
