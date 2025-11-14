@@ -5,7 +5,7 @@ export const config = getDefaultConfig({
   appName: 'TrustMe dApp',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
   chains: [
-    anvil,
+    ...(process.env.NODE_ENV === 'development' ? [anvil] : []),
     mainnet,
     sepolia,
   ],
