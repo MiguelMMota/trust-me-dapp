@@ -220,7 +220,7 @@ export default function UserProfilePage({ params }: PageProps) {
             <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
               <button
                 onClick={() => setActiveTab('challenges')}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`hidden px-6 py-3 font-medium transition-colors ${
                   activeTab === 'challenges'
                     ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -230,7 +230,7 @@ export default function UserProfilePage({ params }: PageProps) {
               </button>
               <button
                 onClick={() => setActiveTab('polls')}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`hidden px-6 py-3 font-medium transition-colors ${
                   activeTab === 'polls'
                     ? 'border-b-2 border-blue-600 text-blue-600'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
