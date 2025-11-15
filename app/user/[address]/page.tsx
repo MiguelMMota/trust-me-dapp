@@ -19,8 +19,8 @@ import {
 import { getContract } from '@/lib/contracts';
 import { getExpertiseRank, getRankColor, getDifficultyLabel, type DifficultyLevel } from '@/lib/types';
 import { getRatingErrorMessage } from '@/lib/errors';
-import Link from 'next/link';
 import { Footer } from '@/components/Footer';
+import { Navigation } from '@/components/Navigation';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { createPublicClient, http } from 'viem';
 import { sepolia, hardhat } from 'viem/chains';
@@ -41,36 +41,7 @@ export default function UserProfilePage({ params }: PageProps) {
   if (!isConnected) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-        <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/info"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Info
-                </Link>
-                {connectedAddress && (
-                  <Link
-                    href={`/user/${connectedAddress}`}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                  >
-                    My Profile
-                  </Link>
-                )}
-                <Link
-                  href="/leaderboard"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Leaderboard
-                </Link>
-                <ConnectButton />
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navigation address={connectedAddress} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Profile Not Available</h1>
@@ -88,36 +59,7 @@ export default function UserProfilePage({ params }: PageProps) {
   if (isRegistered === false) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-        <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/info"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Info
-                </Link>
-                {connectedAddress && (
-                  <Link
-                    href={`/user/${connectedAddress}`}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                  >
-                    My Profile
-                  </Link>
-                )}
-                <Link
-                  href="/leaderboard"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Leaderboard
-                </Link>
-                <ConnectButton />
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navigation address={connectedAddress} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">User Not Registered</h1>
@@ -142,30 +84,7 @@ export default function UserProfilePage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/info"
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-              >
-                Info
-              </Link>
-              {connectedAddress && (
-                <Link
-                  href={`/user/${connectedAddress}`}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  My Profile
-                </Link>
-              )}
-              <ConnectButton />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation address={connectedAddress} />
 
       <div className="flex-1 p-4 md:p-8">
         <div className="max-w-6xl mx-auto">

@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Link from 'next/link';
 import { Footer } from '@/components/Footer';
+import { Navigation } from '@/components/Navigation';
 import { useTopics, useChainId } from '@/hooks/useContracts';
 import { getContract } from '@/lib/contracts';
 import { createPublicClient, http } from 'viem';
@@ -249,28 +250,7 @@ export default function LeaderboardPage() {
   if (!isConnected) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-        <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/info"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Info
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  Leaderboard
-                </Link>
-                <ConnectButton />
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navigation />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Leaderboard</h1>
@@ -287,36 +267,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-mono font-bold">TrustMe</Link>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/info"
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-              >
-                Info
-              </Link>
-              {connectedAddress && (
-                <Link
-                  href={`/user/${connectedAddress}`}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  My Profile
-                </Link>
-              )}
-              <Link
-                href="/leaderboard"
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-              >
-                Leaderboard
-              </Link>
-              <ConnectButton />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation address={connectedAddress} />
 
       <div className="flex-1 p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
