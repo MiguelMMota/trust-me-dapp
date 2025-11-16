@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { notFound } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
@@ -22,13 +22,14 @@ interface TeamPageProps {
 const ROLE_NAMES = ['none', 'member', 'admin', 'owner'] as const;
 
 export default function TeamPage({ params }: TeamPageProps) {
+  const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Get team data from contract
-  const { team } = useTeam(params.team_id);
-  const { members: memberAddresses, refetch: refetchMembers } = useTeamMembers(params.team_id);
-  const { member: currentUserMemberData } = useTeamMember(params.team_id, address);
+  const { team } = useTeam(team_id);
+  const { members: memberAddresses, refetch: refetchMembers } = useTeamMembers(team_id);
+  const { member: currentUserMemberData } = useTeamMember(team_id, address);
 
   // Determine current user's role
   const currentUserRole = currentUserMemberData && currentUserMemberData.isActive
@@ -112,13 +113,13 @@ export default function TeamPage({ params }: TeamPageProps) {
           </div>
 
           {/* Team Tabs */}
-          <TeamTabs teamId={params.team_id} />
+          <TeamTabs teamId={team_id} />
 
           {/* Team Members */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-2xl font-bold mb-4">Team Members</h2>
             <TeamMembersList
-              teamId={params.team_id}
+              teamId={team_id}
               memberAddresses={memberAddresses}
               currentUserRole={currentUserRole}
               onMembersUpdated={refetchMembers}
@@ -129,7 +130,7 @@ export default function TeamPage({ params }: TeamPageProps) {
 
       {showInviteModal && (
         <InviteMemberModal
-          teamId={params.team_id}
+          teamId={team_id}
           onClose={() => setShowInviteModal(false)}
           onSuccess={() => {
             setShowInviteModal(false);
