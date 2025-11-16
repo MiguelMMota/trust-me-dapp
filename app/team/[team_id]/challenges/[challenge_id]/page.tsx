@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
 import { NetworkSwitcher } from '@/components/NetworkSwitcher';
@@ -78,19 +79,7 @@ export default function ChallengeDetailPage({ params }: ChallengeDetailPageProps
   }
 
   if (!isMember) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <NetworkSwitcher />
-        <Navigation address={address} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="max-w-md text-center">
-            <h1 className="text-4xl font-bold mb-4">Access Denied</h1>
-            <p className="text-gray-600 dark:text-gray-400">Not a team member</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
+    notFound();
   }
 
   return (
