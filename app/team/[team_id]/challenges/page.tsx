@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use } from 'react';
 import { useAccount } from 'wagmi';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -9,72 +9,32 @@ import { NetworkSwitcher } from '@/components/NetworkSwitcher';
 import { Footer } from '@/components/Footer';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { TeamTabs } from '@/components/TeamTabs';
-import { Challenge, DifficultyLevel, ChallengeStatus, getDifficultyLabel, getDifficultyColor } from '@/lib/types';
+import { useTeamMember } from '@/hooks/useContracts';
 
 interface TeamChallengesPageProps {
-  params: {
+  params: Promise<{
     team_id: string;
-  };
+  }>;
 }
 
-// Mock members
-const mockMembers = [
-  {
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    role: 'owner' as const,
-    joinedAt: Date.now(),
-  },
-];
-
-// Mock challenges
-const mockChallenges: Challenge[] = [
-  {
-    id: BigInt(1),
-    question: 'What is the gas limit for a single Ethereum transaction?',
-    options: ['21000', '100000', '8000000', 'Unlimited'],
-    correctAnswer: '21000',
-    topicId: 3,
-    topicName: 'Blockchain',
-    difficulty: DifficultyLevel.Medium,
-    status: ChallengeStatus.Active,
-    creator: '0x1234567890123456789012345678901234567890',
-    createdAt: new Date(Date.now() - 86400000 * 5),
-    totalAttempts: 25,
-    correctAttempts: 18,
-    successRate: 72,
-    teamId: BigInt(1),
-  },
-  {
-    id: BigInt(2),
-    question: 'Which pattern prevents reentrancy attacks in Solidity?',
-    options: ['Checks-Effects-Interactions', 'Factory Pattern', 'Singleton Pattern', 'Observer Pattern'],
-    correctAnswer: 'Checks-Effects-Interactions',
-    topicId: 100,
-    topicName: 'Smart Contract Security',
-    difficulty: DifficultyLevel.Hard,
-    status: ChallengeStatus.Active,
-    creator: '0x1234567890123456789012345678901234567890',
-    createdAt: new Date(Date.now() - 86400000 * 3),
-    totalAttempts: 15,
-    correctAttempts: 9,
-    successRate: 60,
-    teamId: BigInt(1),
-  },
-];
+// Role enum matches contract: 0 = none, 1 = MEMBER, 2 = ADMIN, 3 = OWNER
+const ROLE_NAMES = ['none', 'member', 'admin', 'owner'] as const;
 
 export default function TeamChallengesPage({ params }: TeamChallengesPageProps) {
   const { team_id } = use(params);
   const { address, isConnected } = useAccount();
-  const [challenges] = useState<Challenge[]>(mockChallenges);
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyLevel | 'all'>('all');
 
-  const currentUserMember = mockMembers.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  const isMember = currentUserMember !== undefined;
+  // TODO: Implement team-scoped challenges once contracts support it
+  // const challenges = []; // Fetch from contract when available
 
-  const filteredChallenges = challenges.filter(c => {
-    if (difficultyFilter !== 'all' && c.difficulty !== difficultyFilter) return false;
-    return true;
-  });
+  // Get team member data from contract
+  const { member: currentUserMemberData } = useTeamMember(team_id, address);
+
+  // Determine current user's role
+  const currentUserRole = currentUserMemberData && currentUserMemberData.isActive
+    ? ROLE_NAMES[currentUserMemberData.role]
+    : null;
+  const isMember = currentUserRole !== null && currentUserRole !== 'none';
 
   if (!isConnected) {
     return (
@@ -87,6 +47,22 @@ export default function TeamChallengesPage({ params }: TeamChallengesPageProps) 
               Connect your wallet to view challenges
             </p>
             <ConnectButton />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (!currentUserMemberData) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading team...</p>
           </div>
         </div>
         <Footer />
@@ -125,51 +101,12 @@ export default function TeamChallengesPage({ params }: TeamChallengesPageProps) 
               </Link>
             </div>
 
-            {/* Filter */}
-            <div className="mb-4">
-              <select
-                value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-sm"
-              >
-                <option value="all">All Difficulties</option>
-                <option value={DifficultyLevel.Easy}>Easy</option>
-                <option value={DifficultyLevel.Medium}>Medium</option>
-                <option value={DifficultyLevel.Hard}>Hard</option>
-                <option value={DifficultyLevel.Expert}>Expert</option>
-              </select>
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No challenges yet for this team</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                Create challenges to help team members build expertise
+              </p>
             </div>
-
-            {/* Challenges Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredChallenges.map((challenge) => (
-                <Link
-                  key={challenge.id.toString()}
-                  href={`/team/${team_id}/challenges/${challenge.id.toString()}`}
-                  className="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getDifficultyColor(challenge.difficulty)}`}>
-                      {getDifficultyLabel(challenge.difficulty)}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {challenge.totalAttempts} attempts
-                    </span>
-                  </div>
-                  <h3 className="font-medium mb-2 line-clamp-2">{challenge.question}</h3>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <p className="mb-1">Topic: {challenge.topicName}</p>
-                    <p>Success Rate: {challenge.successRate}%</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {filteredChallenges.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400">No challenges found</p>
-              </div>
-            )}
           </div>
         </div>
       </div>

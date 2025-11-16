@@ -11,13 +11,15 @@ import { TeamTabs } from '@/components/TeamTabs';
 import { TeamTopicManager } from '@/components/TeamTopicManager';
 import { CreateTopicModal } from '@/components/CreateTopicModal';
 import { Topic } from '@/lib/types';
+import { useTeamMember } from '@/hooks/useContracts';
 
 interface TeamTopicsPageProps {
-  params: {
+  params: Promise<{
     team_id: string;
-  };
+  }>;
 }
 
+// TODO: Fetch global topics from TopicRegistry contract using getRootTopics() and getTopic()
 // Mock global topics (from TopicRegistry contract)
 const mockGlobalTopics: Topic[] = [
   {
@@ -50,19 +52,16 @@ const mockGlobalTopics: Topic[] = [
   },
 ];
 
-// Mock team members (for access control)
-const mockMembers = [
-  {
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    role: 'owner' as const,
-    joinedAt: Date.now() - 86400000 * 30,
-  },
-];
+// Role enum matches contract: 0 = none, 1 = MEMBER, 2 = ADMIN, 3 = OWNER
+const ROLE_NAMES = ['none', 'member', 'admin', 'owner'] as const;
 
 export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
   const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // TODO: Fetch team topics from TopicRegistry contract using getTeamChildTopics() and getTeamTopic()
+  // Use createTeamTopic() for creating new team-specific topics
   const [teamTopics, setTeamTopics] = useState<Topic[]>([
     {
       id: 100,
@@ -84,9 +83,14 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
     },
   ]);
 
-  const currentUserMember = mockMembers.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  const currentUserRole = currentUserMember?.role || null;
-  const isMember = currentUserMember !== undefined;
+  // Get team member data from contract
+  const { member: currentUserMemberData } = useTeamMember(team_id, address);
+
+  // Determine current user's role
+  const currentUserRole = currentUserMemberData && currentUserMemberData.isActive
+    ? ROLE_NAMES[currentUserMemberData.role]
+    : null;
+  const isMember = currentUserRole !== null && currentUserRole !== 'none';
 
   if (!isConnected) {
     return (
@@ -99,6 +103,22 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
               Connect your wallet to view team topics
             </p>
             <ConnectButton />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (!currentUserMemberData) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading team...</p>
           </div>
         </div>
         <Footer />
