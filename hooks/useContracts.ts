@@ -767,3 +767,258 @@ export function useRateUser() {
     ...rest,
   };
 }
+
+// ========== TeamRegistry Hooks ==========
+
+export interface Team {
+  teamId: bigint;
+  name: string;
+  owner: Address;
+  createdAt: bigint;
+  isActive: boolean;
+}
+
+export interface TeamMember {
+  role: number; // 0 = none, 1 = MEMBER, 2 = ADMIN, 3 = OWNER
+  joinedAt: bigint;
+  isActive: boolean;
+}
+
+export function useTeam(teamId?: bigint | string) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+
+  const { data: team, ...rest } = useReadContract({
+    ...contract,
+    functionName: 'getTeam',
+    args: teamId !== undefined ? [BigInt(teamId)] : undefined,
+    query: {
+      enabled: teamId !== undefined,
+    }
+  });
+
+  return {
+    team: team as Team | undefined,
+    ...rest,
+  };
+}
+
+export function useTeamMembers(teamId?: bigint | string) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+
+  const { data: members, ...rest } = useReadContract({
+    ...contract,
+    functionName: 'getTeamMembers',
+    args: teamId !== undefined ? [BigInt(teamId)] : undefined,
+    query: {
+      enabled: teamId !== undefined,
+    }
+  });
+
+  return {
+    members: members as Address[] | undefined,
+    ...rest,
+  };
+}
+
+export function useTeamMember(teamId?: bigint | string, memberAddress?: Address) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+
+  const { data: member, ...rest } = useReadContract({
+    ...contract,
+    functionName: 'getTeamMember',
+    args: teamId !== undefined && memberAddress ? [BigInt(teamId), memberAddress] : undefined,
+    query: {
+      enabled: teamId !== undefined && memberAddress !== undefined,
+    }
+  });
+
+  return {
+    member: member as TeamMember | undefined,
+    ...rest,
+  };
+}
+
+export function useUserTeams(userAddress?: Address) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+
+  const { data: teamIds, ...rest } = useReadContract({
+    ...contract,
+    functionName: 'getUserTeams',
+    args: userAddress ? [userAddress] : undefined,
+    query: {
+      enabled: userAddress !== undefined,
+    }
+  });
+
+  return {
+    teamIds: teamIds as bigint[] | undefined,
+    ...rest,
+  };
+}
+
+export function useIsTeamMember(teamId?: bigint | string, userAddress?: Address) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+
+  const { data: isMember, ...rest } = useReadContract({
+    ...contract,
+    functionName: 'isTeamMember',
+    args: teamId !== undefined && userAddress ? [BigInt(teamId), userAddress] : undefined,
+    query: {
+      enabled: teamId !== undefined && userAddress !== undefined,
+    }
+  });
+
+  return {
+    isMember: isMember as boolean | undefined,
+    ...rest,
+  };
+}
+
+export function useCreateTeam() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const createTeam = (name: string) => {
+    writeContract({
+      ...contract,
+      functionName: 'createTeam',
+      args: [name],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    createTeam,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}
+
+export function useAddMember() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const addMember = (teamId: bigint | string, member: Address, role: number) => {
+    writeContract({
+      ...contract,
+      functionName: 'addMember',
+      args: [BigInt(teamId), member, role],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    addMember,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}
+
+export function useRemoveMember() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const removeMember = (teamId: bigint | string, member: Address) => {
+    writeContract({
+      ...contract,
+      functionName: 'removeMember',
+      args: [BigInt(teamId), member],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    removeMember,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}
+
+export function useChangeMemberRole() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TeamRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const changeMemberRole = (teamId: bigint | string, member: Address, newRole: number) => {
+    writeContract({
+      ...contract,
+      functionName: 'changeMemberRole',
+      args: [BigInt(teamId), member, newRole],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    changeMemberRole,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}

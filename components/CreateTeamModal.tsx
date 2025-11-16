@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useCreateTeam, useUserTeams } from '@/hooks/useContracts';
+import { getTeamErrorMessage } from '@/lib/errors';
 
 interface CreateTeamModalProps {
   address: `0x${string}`;
@@ -10,25 +12,35 @@ interface CreateTeamModalProps {
 
 export function CreateTeamModal({ address, onClose }: CreateTeamModalProps) {
   const [teamName, setTeamName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  const { createTeam, isPending, isConfirming, isSuccess, error } = useCreateTeam();
+  const { teamIds, refetch: refetchTeams } = useUserTeams(address);
+
+  const isSubmitting = isPending || isConfirming;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamName.trim()) return;
-
-    setIsSubmitting(true);
-
-    // TODO: Call smart contract function to create team
-    // For now, simulate the contract call with a delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Generate a mock team ID (will be replaced with actual contract response)
-    const mockTeamId = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
-
-    // Redirect to team page in owner mode
-    router.push(`/team/${mockTeamId}`);
+    createTeam(teamName.trim());
   };
+
+  // Handle success - refetch teams and navigate to the new team
+  useEffect(() => {
+    if (isSuccess && teamIds) {
+      refetchTeams().then((result) => {
+        const newTeamIds = result.data;
+        if (newTeamIds && newTeamIds.length > 0) {
+          // The newest team will be the last one
+          const latestTeamId = newTeamIds[newTeamIds.length - 1];
+          router.push(`/team/${latestTeamId.toString()}`);
+        } else {
+          // Fallback if refetch didn't work
+          onClose();
+        }
+      });
+    }
+  }, [isSuccess, teamIds, refetchTeams, router, onClose]);
 
   // Close modal when clicking on backdrop
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -63,6 +75,16 @@ export function CreateTeamModal({ address, onClose }: CreateTeamModalProps) {
               autoFocus
               disabled={isSubmitting}
             />
+            {error && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {getTeamErrorMessage(error)}
+              </p>
+            )}
+            {isConfirming && (
+              <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">
+                Waiting for transaction confirmation...
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-3">

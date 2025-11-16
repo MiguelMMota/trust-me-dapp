@@ -108,3 +108,64 @@ export function getRegistrationErrorMessage(error: Error | null): string {
   // Fall back to generic transaction error
   return getTransactionErrorMessage(error);
 }
+
+/**
+ * Error messages specific to team operations
+ */
+export function getTeamErrorMessage(error: Error | null): string {
+  if (!error) return '';
+
+  const errorMessage = error.message.toLowerCase();
+
+  // Contract revert - various team-related errors
+  if (errorMessage.includes('invalidteamname')) {
+    return 'Invalid team name. Please use a valid name (1-50 characters).';
+  }
+
+  if (errorMessage.includes('teamalreadyexists')) {
+    return 'A team with this name already exists.';
+  }
+
+  if (errorMessage.includes('teamdoesnotexist')) {
+    return 'This team does not exist.';
+  }
+
+  if (errorMessage.includes('notteamowner')) {
+    return 'You must be the team owner to perform this action.';
+  }
+
+  if (errorMessage.includes('notteamadmin')) {
+    return 'You must be a team admin to perform this action.';
+  }
+
+  if (errorMessage.includes('notteammember')) {
+    return 'You are not a member of this team.';
+  }
+
+  if (errorMessage.includes('useralreadymember')) {
+    return 'This user is already a member of the team.';
+  }
+
+  if (errorMessage.includes('usernotmember')) {
+    return 'This user is not a member of the team.';
+  }
+
+  if (errorMessage.includes('cannotremoveowner')) {
+    return 'The team owner cannot be removed.';
+  }
+
+  if (errorMessage.includes('cannotremoveself')) {
+    return 'You cannot remove yourself from the team.';
+  }
+
+  if (errorMessage.includes('teaminactive')) {
+    return 'This team is inactive.';
+  }
+
+  if (errorMessage.includes('revert') || errorMessage.includes('execution reverted')) {
+    return 'Transaction failed. Please check the operation and try again.';
+  }
+
+  // Fall back to generic transaction error
+  return getTransactionErrorMessage(error);
+}

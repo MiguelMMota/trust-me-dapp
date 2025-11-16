@@ -1,27 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAddMember } from '@/hooks/useContracts';
+import { getTeamErrorMessage } from '@/lib/errors';
 
 interface InviteMemberModalProps {
+  teamId: string;
   onClose: () => void;
-  onInvite: (address: `0x${string}`, role: 'admin' | 'member') => void;
+  onSuccess: () => void;
   canAssignAdmin: boolean;
 }
 
-export function InviteMemberModal({ onClose, onInvite, canAssignAdmin }: InviteMemberModalProps) {
+// Role mapping: 1 = MEMBER, 2 = ADMIN
+const ROLE_VALUES = {
+  member: 1,
+  admin: 2,
+} as const;
+
+export function InviteMemberModal({ teamId, onClose, onSuccess, canAssignAdmin }: InviteMemberModalProps) {
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  const { addMember, isPending, isConfirming, isSuccess, error } = useAddMember();
+
+  const isSubmitting = isPending || isConfirming;
 
   const validateAddress = (addr: string): boolean => {
     if (!addr) return false;
     // Basic Ethereum address validation
     if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
-      setError('Invalid Ethereum address format');
+      setValidationError('Invalid Ethereum address format');
       return false;
     }
-    setError('');
+    setValidationError('');
     return true;
   };
 
@@ -32,14 +44,15 @@ export function InviteMemberModal({ onClose, onInvite, canAssignAdmin }: InviteM
       return;
     }
 
-    setIsSubmitting(true);
-
-    // TODO: Call smart contract to invite member
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    onInvite(address as `0x${string}`, role);
-    onClose();
+    addMember(teamId, address as `0x${string}`, ROLE_VALUES[role]);
   };
+
+  // Handle success
+  useEffect(() => {
+    if (isSuccess) {
+      onSuccess();
+    }
+  }, [isSuccess, onSuccess]);
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -69,15 +82,21 @@ export function InviteMemberModal({ onClose, onInvite, canAssignAdmin }: InviteM
               value={address}
               onChange={(e) => {
                 setAddress(e.target.value);
-                setError('');
+                setValidationError('');
               }}
               placeholder="0x..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 font-mono text-sm"
               autoFocus
               disabled={isSubmitting}
             />
+            {validationError && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationError}</p>
+            )}
             {error && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{getTeamErrorMessage(error)}</p>
+            )}
+            {isConfirming && (
+              <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">Waiting for transaction confirmation...</p>
             )}
           </div>
 

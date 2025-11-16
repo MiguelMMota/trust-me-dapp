@@ -1,33 +1,42 @@
 'use client';
 
-import { useState } from 'react';
-
-interface TeamMember {
-  address: `0x${string}`;
-  role: 'owner' | 'admin' | 'member';
-  joinedAt: number;
-}
+import { useState, useEffect } from 'react';
+import { useChangeMemberRole } from '@/hooks/useContracts';
+import { getTeamErrorMessage } from '@/lib/errors';
 
 interface ChangeRoleModalProps {
-  member: TeamMember;
+  teamId: string;
+  memberAddress: `0x${string}`;
+  currentRole: string;
   onClose: () => void;
-  onConfirm: (newRole: 'admin' | 'member') => void;
+  onSuccess: () => void;
 }
 
-export function ChangeRoleModal({ member, onClose, onConfirm }: ChangeRoleModalProps) {
+// Role mapping: 1 = MEMBER, 2 = ADMIN
+const ROLE_VALUES = {
+  member: 1,
+  admin: 2,
+} as const;
+
+export function ChangeRoleModal({ teamId, memberAddress, currentRole, onClose, onSuccess }: ChangeRoleModalProps) {
   const [newRole, setNewRole] = useState<'admin' | 'member'>(
-    member.role === 'admin' ? 'member' : 'admin'
+    currentRole === 'admin' ? 'member' : 'admin'
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleConfirm = async () => {
-    setIsSubmitting(true);
+  const { changeMemberRole, isPending, isConfirming, isSuccess, error } = useChangeMemberRole();
 
-    // TODO: Call smart contract to change role
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const isSubmitting = isPending || isConfirming;
 
-    onConfirm(newRole);
+  const handleConfirm = () => {
+    changeMemberRole(teamId, memberAddress, ROLE_VALUES[newRole]);
   };
+
+  // Handle success
+  useEffect(() => {
+    if (isSuccess) {
+      onSuccess();
+    }
+  }, [isSuccess, onSuccess]);
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -48,12 +57,12 @@ export function ChangeRoleModal({ member, onClose, onConfirm }: ChangeRoleModalP
         </p>
 
         <div className="bg-gray-100 dark:bg-gray-900 p-3 rounded-lg mb-4">
-          <code className="text-sm font-mono break-all">{member.address}</code>
+          <code className="text-sm font-mono break-all">{memberAddress}</code>
         </div>
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Current Role: <strong className="capitalize">{member.role}</strong>
+            Current Role: <strong className="capitalize">{currentRole}</strong>
           </label>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             New Role
@@ -97,6 +106,13 @@ export function ChangeRoleModal({ member, onClose, onConfirm }: ChangeRoleModalP
           </div>
         </div>
 
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400 mb-4">{getTeamErrorMessage(error)}</p>
+        )}
+        {isConfirming && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">Waiting for transaction confirmation...</p>
+        )}
+
         <div className="flex justify-end gap-3">
           <button
             type="button"
@@ -109,7 +125,7 @@ export function ChangeRoleModal({ member, onClose, onConfirm }: ChangeRoleModalP
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isSubmitting || newRole === member.role}
+            disabled={isSubmitting || newRole === currentRole}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? 'Updating...' : 'Update Role'}

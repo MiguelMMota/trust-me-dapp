@@ -1,24 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useRemoveMember } from '@/hooks/useContracts';
+import { getTeamErrorMessage } from '@/lib/errors';
 
 interface RemoveMemberModalProps {
+  teamId: string;
   memberAddress: `0x${string}`;
   onClose: () => void;
-  onConfirm: () => void;
+  onSuccess: () => void;
 }
 
-export function RemoveMemberModal({ memberAddress, onClose, onConfirm }: RemoveMemberModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function RemoveMemberModal({ teamId, memberAddress, onClose, onSuccess }: RemoveMemberModalProps) {
+  const { removeMember, isPending, isConfirming, isSuccess, error } = useRemoveMember();
 
-  const handleConfirm = async () => {
-    setIsSubmitting(true);
+  const isSubmitting = isPending || isConfirming;
 
-    // TODO: Call smart contract to remove member
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    onConfirm();
+  const handleConfirm = () => {
+    removeMember(teamId, memberAddress);
   };
+
+  // Handle success
+  useEffect(() => {
+    if (isSuccess) {
+      onSuccess();
+    }
+  }, [isSuccess, onSuccess]);
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -42,9 +49,16 @@ export function RemoveMemberModal({ memberAddress, onClose, onConfirm }: RemoveM
           <code className="text-sm font-mono break-all">{memberAddress}</code>
         </div>
 
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           This action cannot be undone. The member will lose access to all team resources.
         </p>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400 mb-4">{getTeamErrorMessage(error)}</p>
+        )}
+        {isConfirming && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">Waiting for transaction confirmation...</p>
+        )}
 
         <div className="flex justify-end gap-3">
           <button

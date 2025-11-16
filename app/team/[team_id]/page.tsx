@@ -10,6 +10,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { TeamMembersList } from '@/components/TeamMembersList';
 import { InviteMemberModal } from '@/components/InviteMemberModal';
 import { TeamTabs } from '@/components/TeamTabs';
+import { useTeam, useTeamMembers, useTeamMember } from '@/hooks/useContracts';
 
 interface TeamPageProps {
   params: {
@@ -17,50 +18,22 @@ interface TeamPageProps {
   };
 }
 
-// Mock team data - will be replaced with smart contract data
-const mockTeamData = {
-  name: 'Engineering Team',
-  createdAt: Date.now() - 86400000 * 30, // 30 days ago
-  memberCount: 5,
-};
-
-// Mock members data - will be replaced with smart contract data
-const mockMembers = [
-  {
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    role: 'owner' as const,
-    joinedAt: Date.now() - 86400000 * 30,
-  },
-  {
-    address: '0x2345678901234567890123456789012345678901' as `0x${string}`,
-    role: 'admin' as const,
-    joinedAt: Date.now() - 86400000 * 25,
-  },
-  {
-    address: '0x3456789012345678901234567890123456789012' as `0x${string}`,
-    role: 'member' as const,
-    joinedAt: Date.now() - 86400000 * 20,
-  },
-  {
-    address: '0x4567890123456789012345678901234567890123' as `0x${string}`,
-    role: 'member' as const,
-    joinedAt: Date.now() - 86400000 * 15,
-  },
-  {
-    address: '0x5678901234567890123456789012345678901234' as `0x${string}`,
-    role: 'member' as const,
-    joinedAt: Date.now() - 86400000 * 10,
-  },
-];
+// Role enum matches contract: 0 = none, 1 = MEMBER, 2 = ADMIN, 3 = OWNER
+const ROLE_NAMES = ['none', 'member', 'admin', 'owner'] as const;
 
 export default function TeamPage({ params }: TeamPageProps) {
   const { address, isConnected } = useAccount();
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [members, setMembers] = useState(mockMembers);
 
-  // Determine current user's role in the team
-  const currentUserMember = members.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  const currentUserRole = currentUserMember?.role || null;
+  // Get team data from contract
+  const { team } = useTeam(params.team_id);
+  const { members: memberAddresses, refetch: refetchMembers } = useTeamMembers(params.team_id);
+  const { member: currentUserMemberData } = useTeamMember(params.team_id, address);
+
+  // Determine current user's role
+  const currentUserRole = currentUserMemberData && currentUserMemberData.isActive
+    ? ROLE_NAMES[currentUserMemberData.role]
+    : null;
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin';
   const canInvite = isOwner || isAdmin;
@@ -83,31 +56,26 @@ export default function TeamPage({ params }: TeamPageProps) {
     );
   }
 
-  if (!currentUserMember) {
+  // Check if user is a member
+  if (!currentUserRole || currentUserRole === 'none') {
     notFound();
   }
 
-  const handleInviteMember = (memberAddress: `0x${string}`, role: 'admin' | 'member') => {
-    // TODO: Call smart contract to invite member
-    const newMember = {
-      address: memberAddress,
-      role,
-      joinedAt: Date.now(),
-    };
-    setMembers([...members, newMember]);
-  };
-
-  const handleRemoveMember = (memberAddress: `0x${string}`) => {
-    // TODO: Call smart contract to remove member
-    setMembers(members.filter(m => m.address !== memberAddress));
-  };
-
-  const handleChangeRole = (memberAddress: `0x${string}`, newRole: 'admin' | 'member') => {
-    // TODO: Call smart contract to change role
-    setMembers(members.map(m =>
-      m.address === memberAddress ? { ...m, role: newRole } : m
-    ));
-  };
+  // Show loading state
+  if (!team || !memberAddresses) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading team...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -120,14 +88,14 @@ export default function TeamPage({ params }: TeamPageProps) {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-4xl font-bold mb-2">{mockTeamData.name}</h1>
+                <h1 className="text-4xl font-bold mb-2">{team.name}</h1>
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
-                  Team ID: <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-sm">{params.team_id}</code>
+                  Team ID: <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-sm">{team.teamId.toString()}</code>
                 </p>
                 <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400">
-                  <span>{mockTeamData.memberCount} members</span>
+                  <span>{memberAddresses.length} member{memberAddresses.length !== 1 ? 's' : ''}</span>
                   <span>•</span>
-                  <span>Created {new Date(mockTeamData.createdAt).toLocaleDateString()}</span>
+                  <span>Created {new Date(Number(team.createdAt) * 1000).toLocaleDateString()}</span>
                   <span>•</span>
                   <span className="capitalize">Your role: <strong>{currentUserRole}</strong></span>
                 </div>
@@ -150,10 +118,10 @@ export default function TeamPage({ params }: TeamPageProps) {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-2xl font-bold mb-4">Team Members</h2>
             <TeamMembersList
-              members={members}
+              teamId={params.team_id}
+              memberAddresses={memberAddresses}
               currentUserRole={currentUserRole}
-              onRemoveMember={handleRemoveMember}
-              onChangeRole={handleChangeRole}
+              onMembersUpdated={refetchMembers}
             />
           </div>
         </div>
@@ -161,8 +129,12 @@ export default function TeamPage({ params }: TeamPageProps) {
 
       {showInviteModal && (
         <InviteMemberModal
+          teamId={params.team_id}
           onClose={() => setShowInviteModal(false)}
-          onInvite={handleInviteMember}
+          onSuccess={() => {
+            setShowInviteModal(false);
+            refetchMembers();
+          }}
           canAssignAdmin={isOwner}
         />
       )}
