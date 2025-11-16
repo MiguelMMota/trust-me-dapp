@@ -8,6 +8,7 @@ import { Footer } from '@/components/Footer';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { TeamMembersList } from '@/components/TeamMembersList';
 import { InviteMemberModal } from '@/components/InviteMemberModal';
+import { TeamTabs } from '@/components/TeamTabs';
 
 interface TeamPageProps {
   params: {
@@ -154,6 +155,9 @@ export default function TeamPage({ params }: TeamPageProps) {
               )}
             </div>
           </div>
+
+          {/* Team Tabs */}
+          <TeamTabs teamId={params.team_id} />
 
           {/* Team Members */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">

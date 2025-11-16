@@ -9,6 +9,8 @@ export interface Topic {
   parentId: number;
   isActive: boolean;
   createdAt: bigint;
+  teamId?: bigint; // Optional: if set, topic is team-specific
+  creatorAddress?: `0x${string}`; // For team topics
 }
 
 // User types
@@ -61,6 +63,7 @@ export interface ChallengeData {
   createdAt: bigint;
   totalAttempts: number;
   correctAttempts: number;
+  teamId?: bigint; // Optional: if set, challenge is team-specific
 }
 
 export interface ChallengeAttempt {
@@ -86,6 +89,7 @@ export interface Challenge {
   totalAttempts: number;
   correctAttempts: number;
   successRate: number; // percentage
+  teamId?: bigint; // Optional: if set, challenge is team-specific
 }
 
 // Poll types
@@ -106,6 +110,7 @@ export interface PollData {
   status: PollStatus;
   optionCount: number;
   totalVoters: number;
+  teamId?: bigint; // Optional: if set, poll is team-specific
 }
 
 export interface PollOption {
@@ -156,6 +161,7 @@ export interface Poll {
   };
   isActive: boolean;
   timeRemaining?: string;
+  teamId?: bigint; // Optional: if set, poll is team-specific
 }
 
 // Baseball Card types
@@ -195,6 +201,7 @@ export interface CreateChallengeForm {
   correctAnswerIndex: number;
   topicId: number;
   difficulty: DifficultyLevel;
+  teamId?: bigint; // Optional: if set, challenge is team-specific
 }
 
 export interface CreatePollForm {
@@ -202,6 +209,7 @@ export interface CreatePollForm {
   options: string[];
   topicId: number;
   durationInDays: number;
+  teamId?: bigint; // Optional: if set, poll is team-specific
 }
 
 // Helper function to get difficulty label
@@ -238,4 +246,63 @@ export function getRankColor(score: number): string {
   if (score < 750) return 'text-purple-500';
   if (score < 900) return 'text-orange-500';
   return 'text-red-500';
+}
+
+// Team types
+export interface TeamMember {
+  address: `0x${string}`;
+  role: 'owner' | 'admin' | 'member';
+  joinedAt: number;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  createdAt: number;
+  memberCount: number;
+  members: TeamMember[];
+}
+
+// Helper function to get difficulty color
+export function getDifficultyColor(difficulty: DifficultyLevel): string {
+  switch (difficulty) {
+    case DifficultyLevel.Easy:
+      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    case DifficultyLevel.Medium:
+      return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300';
+    case DifficultyLevel.Hard:
+      return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300';
+    case DifficultyLevel.Expert:
+      return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300';
+    default:
+      return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+  }
+}
+
+// Helper function to get poll status color
+export function getPollStatusColor(status: PollStatus): string {
+  switch (status) {
+    case PollStatus.Active:
+      return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+    case PollStatus.Closed:
+      return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+    case PollStatus.Finalized:
+      return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+    default:
+      return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+  }
+}
+
+// Helper function to get poll status label
+export function getPollStatusLabel(status: PollStatus): string {
+  switch (status) {
+    case PollStatus.Active:
+      return 'Active';
+    case PollStatus.Closed:
+      return 'Closed';
+    case PollStatus.Finalized:
+      return 'Finalized';
+    default:
+      return 'Unknown';
+  }
 }
