@@ -1,0 +1,199 @@
+'use client';
+
+import { useState } from 'react';
+import { useAccount } from 'wagmi';
+import { Navigation } from '@/components/Navigation';
+import { NetworkSwitcher } from '@/components/NetworkSwitcher';
+import { Footer } from '@/components/Footer';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { TeamTabs } from '@/components/TeamTabs';
+import { TeamTopicManager } from '@/components/TeamTopicManager';
+import { CreateTopicModal } from '@/components/CreateTopicModal';
+import { Topic } from '@/lib/types';
+
+interface TeamTopicsPageProps {
+  params: {
+    team_id: string;
+  };
+}
+
+// Mock global topics (from TopicRegistry contract)
+const mockGlobalTopics: Topic[] = [
+  {
+    id: 1,
+    name: 'Technology',
+    parentId: 0,
+    isActive: true,
+    createdAt: BigInt(Date.now() - 86400000 * 100),
+  },
+  {
+    id: 2,
+    name: 'Web Development',
+    parentId: 1,
+    isActive: true,
+    createdAt: BigInt(Date.now() - 86400000 * 90),
+  },
+  {
+    id: 3,
+    name: 'Blockchain',
+    parentId: 1,
+    isActive: true,
+    createdAt: BigInt(Date.now() - 86400000 * 85),
+  },
+  {
+    id: 4,
+    name: 'Science',
+    parentId: 0,
+    isActive: true,
+    createdAt: BigInt(Date.now() - 86400000 * 80),
+  },
+];
+
+// Mock team members (for access control)
+const mockMembers = [
+  {
+    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+    role: 'owner' as const,
+    joinedAt: Date.now() - 86400000 * 30,
+  },
+];
+
+export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
+  const { address, isConnected } = useAccount();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [teamTopics, setTeamTopics] = useState<Topic[]>([
+    {
+      id: 100,
+      name: 'Smart Contract Security',
+      parentId: 3, // Child of Blockchain
+      isActive: true,
+      createdAt: BigInt(Date.now() - 86400000 * 10),
+      teamId: BigInt(params.team_id),
+      creatorAddress: '0x1234567890123456789012345678901234567890',
+    },
+    {
+      id: 101,
+      name: 'Solidity Best Practices',
+      parentId: 100, // Child of Smart Contract Security
+      isActive: true,
+      createdAt: BigInt(Date.now() - 86400000 * 5),
+      teamId: BigInt(params.team_id),
+      creatorAddress: '0x1234567890123456789012345678901234567890',
+    },
+  ]);
+
+  const currentUserMember = mockMembers.find(m => m.address.toLowerCase() === address?.toLowerCase());
+  const currentUserRole = currentUserMember?.role || null;
+  const isMember = currentUserMember !== undefined;
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navigation />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4">Team Topics</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              Connect your wallet to view team topics
+            </p>
+            <ConnectButton />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!isMember) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-md text-center">
+            <h1 className="text-4xl font-bold mb-4">Access Denied</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              You are not a member of this team.
+            </p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const handleCreateTopic = (name: string, parentId: number) => {
+    // TODO: Call smart contract to create topic
+    const newTopic: Topic = {
+      id: Date.now(), // Mock ID
+      name,
+      parentId,
+      isActive: true,
+      createdAt: BigInt(Date.now()),
+      teamId: BigInt(params.team_id),
+      creatorAddress: address,
+    };
+    setTeamTopics([...teamTopics, newTopic]);
+  };
+
+  const handleToggleActive = (topicId: number, isActive: boolean) => {
+    // TODO: Call smart contract to activate/deactivate topic
+    setTeamTopics(teamTopics.map(t =>
+      t.id === topicId ? { ...t, isActive } : t
+    ));
+  };
+
+  // Combine global and team topics for parent selection
+  const allTopics = [...mockGlobalTopics, ...teamTopics];
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <NetworkSwitcher />
+      <Navigation address={address} />
+
+      <div className="flex-1 p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Page Header */}
+          <div className="mb-6">
+            <h1 className="text-4xl font-bold mb-2">Team Topics</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Manage team-specific topics for polls and challenges
+            </p>
+          </div>
+
+          <TeamTabs teamId={params.team_id} />
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Topics</h2>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Create Topic
+              </button>
+            </div>
+
+            <TeamTopicManager
+              teamId={params.team_id}
+              globalTopics={mockGlobalTopics}
+              teamTopics={teamTopics}
+              onToggleActive={handleToggleActive}
+            />
+          </div>
+        </div>
+      </div>
+
+      {showCreateModal && (
+        <CreateTopicModal
+          teamId={params.team_id}
+          availableTopics={allTopics}
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreateTopic}
+        />
+      )}
+
+      <Footer />
+    </div>
+  );
+}
