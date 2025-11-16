@@ -9,6 +9,7 @@ import ChallengeABI from '@/abis/contracts/Challenge.json';
 import PeerRatingABI from '@/abis/contracts/PeerRating.json';
 import PollABI from '@/abis/contracts/Poll.json';
 import ReputationEngineABI from '@/abis/contracts/ReputationEngine.json';
+import TeamRegistryABI from '@/abis/contracts/TeamRegistry.json';
 import TopicRegistryABI from '@/abis/contracts/TopicRegistry.json';
 import UserABI from '@/abis/contracts/User.json';
 import { ANVIL_CONTRACTS } from './anvil';
@@ -25,12 +26,13 @@ export const CONTRACTS = {
 
 // ABIs
 export const ABIS = {
+  Challenge: ChallengeABI.abi,
+  PeerRating: PeerRatingABI.abi,
+  Poll: PollABI.abi,
+  ReputationEngine: ReputationEngineABI.abi,
+  TeamRegistry: TeamRegistryABI.abi,
   TopicRegistry: TopicRegistryABI.abi,
   User: UserABI.abi,
-  Challenge: ChallengeABI.abi,
-  ReputationEngine: ReputationEngineABI.abi,
-  Poll: PollABI.abi,
-  PeerRating: PeerRatingABI.abi,
 } as const;
 
 // Get contract address for current network
