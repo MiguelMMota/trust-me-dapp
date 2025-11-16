@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -63,6 +63,7 @@ const mockChallenges: Challenge[] = [
 ];
 
 export default function TeamChallengesPage({ params }: TeamChallengesPageProps) {
+  const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [challenges] = useState<Challenge[]>(mockChallenges);
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyLevel | 'all'>('all');
@@ -111,13 +112,13 @@ export default function TeamChallengesPage({ params }: TeamChallengesPageProps) 
             </p>
           </div>
 
-          <TeamTabs teamId={params.team_id} />
+          <TeamTabs teamId={team_id} />
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Challenges</h2>
               <Link
-                href={`/team/${params.team_id}/challenges/create`}
+                href={`/team/${team_id}/challenges/create`}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
                 Create Challenge
@@ -144,7 +145,7 @@ export default function TeamChallengesPage({ params }: TeamChallengesPageProps) 
               {filteredChallenges.map((challenge) => (
                 <Link
                   key={challenge.id.toString()}
-                  href={`/team/${params.team_id}/challenges/${challenge.id.toString()}`}
+                  href={`/team/${team_id}/challenges/${challenge.id.toString()}`}
                   className="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">

@@ -57,13 +57,8 @@ export default function TeamPage({ params }: TeamPageProps) {
     );
   }
 
-  // Check if user is a member
-  if (!currentUserRole || currentUserRole === 'none') {
-    notFound();
-  }
-
   // Show loading state
-  if (!team || !memberAddresses) {
+  if (!team || !memberAddresses || !currentUserMemberData) {
     return (
       <div className="min-h-screen flex flex-col">
         <NetworkSwitcher />
@@ -76,6 +71,11 @@ export default function TeamPage({ params }: TeamPageProps) {
         <Footer />
       </div>
     );
+  }
+
+  // Check if user is a member
+  if (!currentUserRole || currentUserRole === 'none') {
+    notFound();
   }
 
   return (

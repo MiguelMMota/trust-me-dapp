@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -149,6 +149,7 @@ const mockPolls: Poll[] = [
 ];
 
 export default function TeamPollsPage({ params }: TeamPollsPageProps) {
+  const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [polls] = useState<Poll[]>(mockPolls);
 
@@ -192,20 +193,20 @@ export default function TeamPollsPage({ params }: TeamPollsPageProps) {
             </p>
           </div>
 
-          <TeamTabs teamId={params.team_id} />
+          <TeamTabs teamId={team_id} />
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Polls</h2>
               <Link
-                href={`/team/${params.team_id}/polls/create`}
+                href={`/team/${team_id}/polls/create`}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
                 Create Poll
               </Link>
             </div>
 
-            <TeamPollsList polls={polls} teamId={params.team_id} />
+            <TeamPollsList polls={polls} teamId={team_id} />
           </div>
         </div>
       </div>

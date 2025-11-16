@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { notFound } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
@@ -60,6 +60,7 @@ const mockMembers = [
 ];
 
 export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
+  const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [teamTopics, setTeamTopics] = useState<Topic[]>([
@@ -69,7 +70,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
       parentId: 3, // Child of Blockchain
       isActive: true,
       createdAt: BigInt(Date.now() - 86400000 * 10),
-      teamId: BigInt(params.team_id),
+      teamId: BigInt(team_id),
       creatorAddress: '0x1234567890123456789012345678901234567890',
     },
     {
@@ -78,7 +79,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
       parentId: 100, // Child of Smart Contract Security
       isActive: true,
       createdAt: BigInt(Date.now() - 86400000 * 5),
-      teamId: BigInt(params.team_id),
+      teamId: BigInt(team_id),
       creatorAddress: '0x1234567890123456789012345678901234567890',
     },
   ]);
@@ -117,7 +118,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
       parentId,
       isActive: true,
       createdAt: BigInt(Date.now()),
-      teamId: BigInt(params.team_id),
+      teamId: BigInt(team_id),
       creatorAddress: address,
     };
     setTeamTopics([...teamTopics, newTopic]);
@@ -148,7 +149,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
             </p>
           </div>
 
-          <TeamTabs teamId={params.team_id} />
+          <TeamTabs teamId={team_id} />
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex justify-between items-center mb-6">
@@ -162,7 +163,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
             </div>
 
             <TeamTopicManager
-              teamId={params.team_id}
+              teamId={team_id}
               globalTopics={mockGlobalTopics}
               teamTopics={teamTopics}
               onToggleActive={handleToggleActive}
@@ -173,7 +174,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
 
       {showCreateModal && (
         <CreateTopicModal
-          teamId={params.team_id}
+          teamId={team_id}
           availableTopics={allTopics}
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateTopic}
