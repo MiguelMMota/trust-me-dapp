@@ -61,6 +61,97 @@ export function useTopic(topicId: number) {
   };
 }
 
+// Hook to fetch all global topics recursively
+export function useAllTopics() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+  const [allTopics, setAllTopics] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { data: rootTopicIds } = useReadContract({
+    ...contract,
+    functionName: 'getRootTopics',
+  });
+
+  useEffect(() => {
+    if (!rootTopicIds || (rootTopicIds as number[]).length === 0) {
+      setIsLoading(false);
+      setAllTopics([]);
+      return;
+    }
+
+    const fetchAllTopics = async () => {
+      try {
+        setIsLoading(true);
+
+        // Create a public client for reading contract
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const topics: any[] = [];
+        const topicsToFetch: number[] = [...(rootTopicIds as number[])];
+        const fetchedIds = new Set<number>();
+
+        // Fetch topics breadth-first
+        while (topicsToFetch.length > 0) {
+          const topicId = topicsToFetch.shift()!;
+
+          // Skip if already fetched
+          if (fetchedIds.has(topicId)) continue;
+          fetchedIds.add(topicId);
+
+          try {
+            // Fetch topic data
+            const topicData = await publicClient.readContract({
+              address: contract.address,
+              abi: contract.abi,
+              functionName: 'getTopic',
+              args: [topicId],
+            });
+
+            // Fetch child topics
+            const childIds = await publicClient.readContract({
+              address: contract.address,
+              abi: contract.abi,
+              functionName: 'getChildTopics',
+              args: [topicId],
+            }) as number[];
+
+            // Add topic to list
+            topics.push({
+              id: topicId,
+              ...(topicData as any),
+            });
+
+            // Add children to fetch queue
+            if (childIds && childIds.length > 0) {
+              topicsToFetch.push(...childIds.filter(id => !fetchedIds.has(id)));
+            }
+          } catch (error) {
+            console.error(`Error fetching topic ${topicId}:`, error);
+          }
+        }
+
+        setAllTopics(topics);
+      } catch (error) {
+        console.error('Error fetching all topics:', error);
+        setAllTopics([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllTopics();
+  }, [rootTopicIds, chainId, contract.address, contract.abi]);
+
+  return {
+    topics: allTopics,
+    isLoading,
+  };
+}
+
 export function useCreateTopic() {
   const chainId = useChainId();
   const contract = getContract(chainId, 'TopicRegistry');

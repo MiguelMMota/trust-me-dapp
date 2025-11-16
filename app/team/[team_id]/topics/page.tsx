@@ -11,46 +11,13 @@ import { TeamTabs } from '@/components/TeamTabs';
 import { TeamTopicManager } from '@/components/TeamTopicManager';
 import { CreateTopicModal } from '@/components/CreateTopicModal';
 import { Topic } from '@/lib/types';
-import { useTeamMember } from '@/hooks/useContracts';
+import { useTeamMember, useAllTopics } from '@/hooks/useContracts';
 
 interface TeamTopicsPageProps {
   params: Promise<{
     team_id: string;
   }>;
 }
-
-// TODO: Fetch global topics from TopicRegistry contract using getRootTopics() and getTopic()
-// Mock global topics (from TopicRegistry contract)
-const mockGlobalTopics: Topic[] = [
-  {
-    id: 1,
-    name: 'Technology',
-    parentId: 0,
-    isActive: true,
-    createdAt: BigInt(Date.now() - 86400000 * 100),
-  },
-  {
-    id: 2,
-    name: 'Web Development',
-    parentId: 1,
-    isActive: true,
-    createdAt: BigInt(Date.now() - 86400000 * 90),
-  },
-  {
-    id: 3,
-    name: 'Blockchain',
-    parentId: 1,
-    isActive: true,
-    createdAt: BigInt(Date.now() - 86400000 * 85),
-  },
-  {
-    id: 4,
-    name: 'Science',
-    parentId: 0,
-    isActive: true,
-    createdAt: BigInt(Date.now() - 86400000 * 80),
-  },
-];
 
 // Role enum matches contract: 0 = none, 1 = MEMBER, 2 = ADMIN, 3 = OWNER
 const ROLE_NAMES = ['none', 'member', 'admin', 'owner'] as const;
@@ -59,6 +26,9 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
   const { team_id } = use(params);
   const { address, isConnected } = useAccount();
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Fetch all global topics from TopicRegistry contract
+  const { topics: globalTopics, isLoading: isLoadingTopics } = useAllTopics();
 
   // TODO: Fetch team topics from TopicRegistry contract using getTeamChildTopics() and getTeamTopic()
   // Use createTeamTopic() for creating new team-specific topics
@@ -111,14 +81,16 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
   }
 
   // Show loading state
-  if (!currentUserMemberData) {
+  if (!currentUserMemberData || isLoadingTopics) {
     return (
       <div className="min-h-screen flex flex-col">
         <NetworkSwitcher />
         <Navigation address={address} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-400">Loading team...</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              {!currentUserMemberData ? 'Loading team...' : 'Loading topics...'}
+            </p>
           </div>
         </div>
         <Footer />
@@ -152,7 +124,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
   };
 
   // Combine global and team topics for parent selection
-  const allTopics = [...mockGlobalTopics, ...teamTopics];
+  const allTopics = [...globalTopics, ...teamTopics];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -184,7 +156,7 @@ export default function TeamTopicsPage({ params }: TeamTopicsPageProps) {
 
             <TeamTopicManager
               teamId={team_id}
-              globalTopics={mockGlobalTopics}
+              globalTopics={globalTopics}
               teamTopics={teamTopics}
               onToggleActive={handleToggleActive}
             />
