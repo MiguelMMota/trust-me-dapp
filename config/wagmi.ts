@@ -6,7 +6,7 @@ export const config = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
   chains: [
     ...(process.env.NODE_ENV === 'development' ? [anvil] : []),
-    mainnet,
+    // mainnet,
     sepolia,
   ],
   ssr: true,
