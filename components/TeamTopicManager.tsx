@@ -8,9 +8,10 @@ interface TeamTopicManagerProps {
   globalTopics: Topic[]; // All global topics
   teamTopics: Topic[]; // Team-specific topics
   onToggleActive: (topicId: number, isActive: boolean) => void;
+  isToggling?: boolean; // Whether a toggle transaction is in progress
 }
 
-export function TeamTopicManager({ teamId, globalTopics, teamTopics, onToggleActive }: TeamTopicManagerProps) {
+export function TeamTopicManager({ teamId, globalTopics, teamTopics, onToggleActive, isToggling = false }: TeamTopicManagerProps) {
   const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
 
   const toggleExpand = (topicId: number) => {
@@ -73,13 +74,14 @@ export function TeamTopicManager({ teamId, globalTopics, teamTopics, onToggleAct
           {isTeamTopic && (
             <button
               onClick={() => onToggleActive(topic.id, !topic.isActive)}
-              className={`opacity-0 group-hover:opacity-100 px-3 py-1 text-sm rounded transition-all ${
+              disabled={isToggling}
+              className={`opacity-0 group-hover:opacity-100 px-3 py-1 text-sm rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                 topic.isActive
                   ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
                   : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
               }`}
             >
-              {topic.isActive ? 'Deactivate' : 'Activate'}
+              {isToggling ? 'Processing...' : topic.isActive ? 'Deactivate' : 'Activate'}
             </button>
           )}
         </div>

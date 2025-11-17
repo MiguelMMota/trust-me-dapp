@@ -9,10 +9,21 @@ import { useState, useEffect } from 'react';
 import { createPublicClient, http } from 'viem';
 import { sepolia, hardhat } from 'viem/chains';
 
-// Hook to get current chain ID
+// Supported chain IDs
+const SUPPORTED_CHAIN_IDS = [31337, 11155111]; // Anvil and Sepolia
+
+// Hook to get current chain ID (only returns supported chains)
 export function useChainId() {
   const { chain } = useAccount();
-  return chain?.id || 31337; // Default to local
+  const chainId = chain?.id;
+
+  // Only return supported chain IDs
+  if (chainId && SUPPORTED_CHAIN_IDS.includes(chainId)) {
+    return chainId;
+  }
+
+  // Default to Sepolia for unsupported chains (or local if not connected)
+  return 11155111;
 }
 
 // ========== TopicRegistry Hooks ==========
@@ -186,6 +197,236 @@ export function useCreateTopic() {
     isSuccess,
     error: writeError || receiptError,
     ...rest,
+  };
+}
+
+// Team-specific topic hooks
+export function useTeamChildTopics(teamId?: bigint | string, parentId?: number) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+
+  const { data: childTopicIds } = useReadContract({
+    ...contract,
+    functionName: 'getTeamChildTopics',
+    args: teamId !== undefined && parentId !== undefined ? [BigInt(teamId), parentId] : undefined,
+    query: {
+      enabled: teamId !== undefined && parentId !== undefined,
+    },
+  });
+
+  return {
+    childTopicIds: childTopicIds as number[] | undefined,
+  };
+}
+
+export function useTeamTopic(teamId?: bigint | string, topicId?: number) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+
+  const { data: topic } = useReadContract({
+    ...contract,
+    functionName: 'getTeamTopic',
+    args: teamId !== undefined && topicId !== undefined ? [BigInt(teamId), topicId] : undefined,
+    query: {
+      enabled: teamId !== undefined && topicId !== undefined,
+    },
+  });
+
+  return {
+    topic: topic as any,
+  };
+}
+
+export function useTeamTopicSettings(teamId?: bigint | string, topicId?: number) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+
+  const { data: settings } = useReadContract({
+    ...contract,
+    functionName: 'getTeamTopicSettings',
+    args: teamId !== undefined && topicId !== undefined ? [BigInt(teamId), topicId] : undefined,
+    query: {
+      enabled: teamId !== undefined && topicId !== undefined,
+    },
+  });
+
+  return {
+    settings: settings as { isEnabled: boolean; isConfigured: boolean } | undefined,
+  };
+}
+
+export function useCreateTeamTopic() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const createTeamTopic = (teamId: bigint | string, name: string, parentId: number) => {
+    writeContract({
+      ...contract,
+      functionName: 'createTeamTopic',
+      args: [BigInt(teamId), name, parentId],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    createTeamTopic,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}
+
+export function useSetTopicEnabledInTeam() {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+  const {
+    writeContract,
+    data: hash,
+    isPending,
+    isSuccess: _,
+    error: writeError,
+    ...rest
+  } = useWriteContract();
+
+  const setTopicEnabled = (teamId: bigint | string, topicId: number, isEnabled: boolean) => {
+    writeContract({
+      ...contract,
+      functionName: 'setTopicEnabledInTeam',
+      args: [BigInt(teamId), topicId, isEnabled],
+    });
+  };
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError
+  } = useWaitForTransactionReceipt({ hash });
+
+  return {
+    setTopicEnabled,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError || receiptError,
+    ...rest,
+  };
+}
+
+// Hook to fetch all team topics recursively
+export function useAllTeamTopics(teamId?: bigint | string) {
+  const chainId = useChainId();
+  const contract = getContract(chainId, 'TopicRegistry');
+  const [teamTopics, setTeamTopics] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { data: rootTopicIds } = useReadContract({
+    ...contract,
+    functionName: 'getTeamChildTopics',
+    args: teamId !== undefined ? [BigInt(teamId), 0] : undefined,
+    query: {
+      enabled: teamId !== undefined,
+    },
+  });
+
+  useEffect(() => {
+    if (teamId === undefined) {
+      setIsLoading(false);
+      setTeamTopics([]);
+      return;
+    }
+
+    if (!rootTopicIds || (rootTopicIds as number[]).length === 0) {
+      setIsLoading(false);
+      setTeamTopics([]);
+      return;
+    }
+
+    const fetchAllTeamTopics = async () => {
+      try {
+        setIsLoading(true);
+
+        // Create a public client for reading contract
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
+
+        const topics: any[] = [];
+        const topicsToFetch: number[] = [...(rootTopicIds as number[])];
+        const fetchedIds = new Set<number>();
+
+        // Fetch topics breadth-first
+        while (topicsToFetch.length > 0) {
+          const topicId = topicsToFetch.shift()!;
+
+          // Skip if already fetched
+          if (fetchedIds.has(topicId)) continue;
+          fetchedIds.add(topicId);
+
+          try {
+            // Fetch topic data
+            const topicData = await publicClient.readContract({
+              address: contract.address,
+              abi: contract.abi,
+              functionName: 'getTeamTopic',
+              args: [BigInt(teamId), topicId],
+            });
+
+            // Fetch child topics
+            const childIds = await publicClient.readContract({
+              address: contract.address,
+              abi: contract.abi,
+              functionName: 'getTeamChildTopics',
+              args: [BigInt(teamId), topicId],
+            }) as number[];
+
+            // Add topic to list
+            topics.push({
+              id: topicId,
+              ...(topicData as any),
+            });
+
+            // Add children to fetch queue
+            if (childIds && childIds.length > 0) {
+              topicsToFetch.push(...childIds.filter(id => !fetchedIds.has(id)));
+            }
+          } catch (error) {
+            console.error(`Error fetching team topic ${topicId}:`, error);
+          }
+        }
+
+        setTeamTopics(topics);
+      } catch (error) {
+        console.error('Error fetching all team topics:', error);
+        setTeamTopics([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllTeamTopics();
+  }, [rootTopicIds, teamId, chainId, contract.address, contract.abi]);
+
+  return {
+    teamTopics,
+    isLoading,
   };
 }
 
