@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { notFound } from 'next/navigation';
@@ -10,29 +10,19 @@ import { Footer } from '@/components/Footer';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { TeamTabs } from '@/components/TeamTabs';
 import { Topic } from '@/lib/types';
+import {
+  useCreatePoll,
+  useAllTopics,
+  useAllTeamTopics,
+  useTeamMember,
+} from '@/hooks/useContracts';
+import { formatContractError } from '@/lib/errors';
 
 interface CreatePollPageProps {
   params: {
     team_id: string;
   };
 }
-
-// Mock topics (global + team)
-const mockTopics: Topic[] = [
-  { id: 1, name: 'Technology', parentId: 0, isActive: true, createdAt: BigInt(0) },
-  { id: 2, name: 'Web Development', parentId: 1, isActive: true, createdAt: BigInt(0) },
-  { id: 3, name: 'Blockchain', parentId: 1, isActive: true, createdAt: BigInt(0) },
-  { id: 100, name: 'Smart Contract Security', parentId: 3, isActive: true, createdAt: BigInt(0), teamId: BigInt(1) },
-];
-
-// Mock members
-const mockMembers = [
-  {
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    role: 'owner' as const,
-    joinedAt: Date.now(),
-  },
-];
 
 export default function CreatePollPage({ params }: CreatePollPageProps) {
   const { address, isConnected } = useAccount();
@@ -41,11 +31,62 @@ export default function CreatePollPage({ params }: CreatePollPageProps) {
   const [topicId, setTopicId] = useState<number>(0);
   const [options, setOptions] = useState<string[]>(['', '']);
   const [durationDays, setDurationDays] = useState<number>(7);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const currentUserMember = mockMembers.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  const isMember = currentUserMember !== undefined;
+  // Fetch team membership
+  const { member } = useTeamMember(params.team_id, address);
+  const isMember = member?.isActive && member.role > 0;
+  const canCreatePoll = member?.isActive && member.role >= 2; // Admin or Owner
+
+  // Fetch global topics
+  const { topics: globalTopics, isLoading: loadingGlobalTopics } = useAllTopics();
+
+  // Fetch team topics
+  const { teamTopics, isLoading: loadingTeamTopics } = useAllTeamTopics(params.team_id);
+
+  // Create poll hook
+  const {
+    createPoll,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: contractError,
+  } = useCreatePoll();
+
+  const isSubmitting = isPending || isConfirming;
+
+  // Combine global and team topics
+  const allTopics: Topic[] = [
+    ...globalTopics.map(t => ({
+      id: t.id,
+      name: t.name,
+      parentId: t.parentId,
+      isActive: t.isActive,
+      createdAt: t.createdAt,
+    })),
+    ...teamTopics.map(t => ({
+      id: t.id,
+      name: t.name,
+      parentId: t.parentId,
+      isActive: t.isActive,
+      createdAt: t.createdAt,
+      teamId: BigInt(params.team_id),
+    })),
+  ];
+
+  // Handle successful poll creation
+  useEffect(() => {
+    if (isSuccess) {
+      router.push(`/team/${params.team_id}/polls`);
+    }
+  }, [isSuccess, router, params.team_id]);
+
+  // Handle contract errors
+  useEffect(() => {
+    if (contractError) {
+      setError(formatContractError(contractError));
+    }
+  }, [contractError]);
 
   const addOption = () => {
     if (options.length < 10) {
@@ -96,12 +137,18 @@ export default function CreatePollPage({ params }: CreatePollPageProps) {
 
     if (!validate()) return;
 
-    setIsSubmitting(true);
+    setError('');
 
-    // TODO: Call smart contract to create poll
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Filter out empty options
+      const filledOptions = options.filter(o => o.trim());
 
-    router.push(`/team/${params.team_id}/polls`);
+      // Call smart contract to create poll
+      createPoll(topicId, question, filledOptions, durationDays);
+    } catch (err) {
+      console.error('Error creating poll:', err);
+      setError('Failed to create poll. Please try again.');
+    }
   };
 
   if (!isConnected) {
@@ -122,9 +169,36 @@ export default function CreatePollPage({ params }: CreatePollPageProps) {
     );
   }
 
+  // Check access control
   if (!isMember) {
     notFound();
   }
+
+  if (!canCreatePoll) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4">Access Denied</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              Only team admins and owners can create polls
+            </p>
+            <button
+              onClick={() => router.push(`/team/${params.team_id}`)}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Back to Team
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const isLoadingTopics = loadingGlobalTopics || loadingTeamTopics;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -168,10 +242,12 @@ export default function CreatePollPage({ params }: CreatePollPageProps) {
                   value={topicId}
                   onChange={(e) => setTopicId(parseInt(e.target.value))}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingTopics}
                 >
-                  <option value={0}>Select a topic...</option>
-                  {mockTopics.map(topic => (
+                  <option value={0}>
+                    {isLoadingTopics ? 'Loading topics...' : 'Select a topic...'}
+                  </option>
+                  {allTopics.map(topic => (
                     <option key={topic.id} value={topic.id}>
                       {topic.name} {topic.teamId ? '(Team)' : ''}
                     </option>
@@ -258,10 +334,12 @@ export default function CreatePollPage({ params }: CreatePollPageProps) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingTopics}
                   className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {isSubmitting ? 'Creating Poll...' : 'Create Poll'}
+                  {isPending && 'Confirm in wallet...'}
+                  {isConfirming && 'Creating poll...'}
+                  {!isPending && !isConfirming && 'Create Poll'}
                 </button>
               </div>
             </form>

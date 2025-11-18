@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { useRouter } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
@@ -12,6 +13,14 @@ import { TeamTabs } from '@/components/TeamTabs';
 import { PollVoteCard } from '@/components/PollVoteCard';
 import { PollResults } from '@/components/PollResults';
 import { Poll, PollStatus } from '@/lib/types';
+import {
+  useTeamMember,
+  useUserExpertise,
+  useChainId,
+} from '@/hooks/useContracts';
+import { createPublicClient, http } from 'viem';
+import { sepolia, hardhat } from 'viem/chains';
+import { getContract } from '@/lib/contracts';
 
 interface PollDetailPageProps {
   params: {
@@ -20,84 +29,152 @@ interface PollDetailPageProps {
   };
 }
 
-// Mock members
-const mockMembers = [
-  {
-    address: '0x1234567890123456789012345678901234567890' as `0x${string}`,
-    role: 'owner' as const,
-    joinedAt: Date.now(),
-  },
-];
-
 export default function PollDetailPage({ params }: PollDetailPageProps) {
   const { address, isConnected } = useAccount();
+  const router = useRouter();
+  const chainId = useChainId();
+  const [pollData, setPollData] = useState<Poll | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // Mock poll data
-  const [poll, setPoll] = useState<Poll>({
-    id: BigInt(params.poll_id),
-    question: 'Should we implement a new authentication system?',
-    topicId: 2,
-    topicName: 'Web Development',
-    creator: '0x1234567890123456789012345678901234567890',
-    createdAt: new Date(Date.now() - 86400000 * 5),
-    endTime: new Date(Date.now() + 86400000 * 2),
-    status: PollStatus.Active,
-    options: [
-      {
-        id: 0,
-        text: 'Yes, implement OAuth 2.0',
-        votes: 12,
-        weight: 1200,
-        percentage: 40,
-        weightedPercentage: 45,
-      },
-      {
-        id: 1,
-        text: 'Yes, implement JWT',
-        votes: 10,
-        weight: 1100,
-        percentage: 33.3,
-        weightedPercentage: 41,
-      },
-      {
-        id: 2,
-        text: 'No, keep current system',
-        votes: 8,
-        weight: 380,
-        percentage: 26.7,
-        weightedPercentage: 14,
-      },
-    ],
-    totalVoters: 30,
-    isActive: true,
-    teamId: BigInt(params.team_id),
-    // userVote: { option: 0, weight: 850 }, // Uncomment to test "already voted" state
-  });
+  // Get team member data
+  const { member: currentUserMemberData } = useTeamMember(params.team_id, address);
+  const isMember = currentUserMemberData?.isActive && currentUserMemberData.role > 0;
 
-  const currentUserMember = mockMembers.find(m => m.address.toLowerCase() === address?.toLowerCase());
-  const isMember = currentUserMember !== undefined;
+  // Fetch poll data
+  useEffect(() => {
+    const fetchPollData = async () => {
+      try {
+        setIsLoading(true);
 
-  // Mock user weight (from reputation in topic)
-  const userWeight = 850;
+        const publicClient = createPublicClient({
+          chain: chainId === 11155111 ? sepolia : hardhat,
+          transport: http(),
+        });
 
-  const handleVote = (optionId: number) => {
-    // TODO: Call smart contract to vote
-    // Update poll state optimistically
-    setPoll({
-      ...poll,
-      userVote: { option: optionId, weight: userWeight },
-      totalVoters: poll.totalVoters + 1,
-      options: poll.options.map((opt, idx) => {
-        if (idx === optionId) {
-          return {
-            ...opt,
-            votes: opt.votes + 1,
-            weight: opt.weight + userWeight,
-          };
+        const pollContract = getContract(chainId, 'Poll');
+        const topicContract = getContract(chainId, 'TopicRegistry');
+        const pollIdBigInt = BigInt(params.poll_id);
+
+        // Fetch poll, options, and results
+        const [poll, options, results] = await Promise.all([
+          publicClient.readContract({
+            address: pollContract.address,
+            abi: pollContract.abi,
+            functionName: 'getPoll',
+            args: [pollIdBigInt],
+          }),
+          publicClient.readContract({
+            address: pollContract.address,
+            abi: pollContract.abi,
+            functionName: 'getPollOptions',
+            args: [pollIdBigInt],
+          }),
+          publicClient.readContract({
+            address: pollContract.address,
+            abi: pollContract.abi,
+            functionName: 'getPollResults',
+            args: [pollIdBigInt],
+          }),
+        ]);
+
+        const pollInfo: any = poll;
+        const pollOptions: any[] = options as any[];
+
+        // Fetch topic name
+        let topicName = 'Unknown Topic';
+        try {
+          // First try to get it as a team topic
+          const teamTopic = await publicClient.readContract({
+            address: topicContract.address,
+            abi: topicContract.abi,
+            functionName: 'getTeamTopic',
+            args: [BigInt(params.team_id), pollInfo.topicId],
+          }) as any;
+          topicName = teamTopic.name;
+        } catch {
+          // Fall back to global topic
+          try {
+            const globalTopic = await publicClient.readContract({
+              address: topicContract.address,
+              abi: topicContract.abi,
+              functionName: 'getTopic',
+              args: [pollInfo.topicId],
+            }) as any;
+            topicName = globalTopic.name;
+          } catch (err) {
+            console.error('Error fetching topic:', err);
+          }
         }
-        return opt;
-      }),
-    });
+
+        // Fetch user's vote if connected
+        let userVote;
+        if (address) {
+          try {
+            const vote = await publicClient.readContract({
+              address: pollContract.address,
+              abi: pollContract.abi,
+              functionName: 'getUserVote',
+              args: [pollIdBigInt, address],
+            }) as any;
+
+            if (vote && vote.voter !== '0x0000000000000000000000000000000000000000') {
+              userVote = {
+                option: vote.selectedOption,
+                weight: Number(vote.weight),
+              };
+            }
+          } catch (err) {
+            // User hasn't voted
+          }
+        }
+
+        // Calculate percentages
+        const totalVotes = pollOptions.reduce((sum, opt) => sum + Number(opt.voteCount), 0);
+        const totalWeight = pollOptions.reduce((sum, opt) => sum + Number(opt.totalWeight), 0);
+
+        const transformedPoll: Poll = {
+          id: pollIdBigInt,
+          question: pollInfo.question,
+          topicId: pollInfo.topicId,
+          topicName,
+          creator: pollInfo.creator,
+          createdAt: new Date(Number(pollInfo.createdAt) * 1000),
+          endTime: new Date(Number(pollInfo.endTime) * 1000),
+          status: pollInfo.status,
+          options: pollOptions.map((opt) => ({
+            id: opt.optionId,
+            text: opt.optionText,
+            votes: opt.voteCount,
+            weight: Number(opt.totalWeight),
+            percentage: totalVotes > 0 ? (opt.voteCount / totalVotes) * 100 : 0,
+            weightedPercentage: totalWeight > 0 ? (Number(opt.totalWeight) / totalWeight) * 100 : 0,
+          })),
+          totalVoters: pollInfo.totalVoters,
+          userVote,
+          isActive: pollInfo.status === 0, // PollStatus.Active = 0
+          teamId: BigInt(params.team_id),
+        };
+
+        setPollData(transformedPoll);
+      } catch (error) {
+        console.error('Error fetching poll:', error);
+        setPollData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPollData();
+  }, [params.poll_id, params.team_id, chainId, address, refetchTrigger]);
+
+  // Fetch user's voting weight (expertise)
+  const { expertise } = useUserExpertise(address, pollData?.topicId);
+  const userWeight = expertise ? Number(expertise.score) : 0;
+
+  const handleVote = () => {
+    // Trigger a refetch of poll data
+    setRefetchTrigger(prev => prev + 1);
   };
 
   if (!isConnected) {
@@ -118,7 +195,22 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
     );
   }
 
-  if (!isMember) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <NetworkSwitcher />
+        <Navigation address={address} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading poll...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!pollData || !isMember) {
     notFound();
   }
 
@@ -144,12 +236,12 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Vote Card */}
             <div>
-              <PollVoteCard poll={poll} userWeight={userWeight} onVote={handleVote} />
+              <PollVoteCard poll={pollData} userWeight={userWeight} onVote={handleVote} />
             </div>
 
             {/* Results */}
             <div>
-              <PollResults poll={poll} />
+              <PollResults poll={pollData} />
             </div>
           </div>
         </div>
