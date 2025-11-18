@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Poll, PollStatus } from '@/lib/types';
+import { useVotePoll } from '@/hooks/useContracts';
+import { formatContractError } from '@/lib/errors';
 
 interface PollVoteCardProps {
   poll: Poll;
@@ -11,20 +13,46 @@ interface PollVoteCardProps {
 
 export function PollVoteCard({ poll, userWeight, onVote }: PollVoteCardProps) {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const {
+    vote,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error,
+  } = useVotePoll();
 
   const hasVoted = poll.userVote !== undefined;
   const canVote = poll.status === PollStatus.Active && !hasVoted;
+  const isSubmitting = isPending || isConfirming;
+
+  // Handle successful vote
+  useEffect(() => {
+    if (isSuccess && selectedOption !== null) {
+      onVote(selectedOption);
+      setErrorMessage(null);
+    }
+  }, [isSuccess, selectedOption, onVote]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      setErrorMessage(formatContractError(error));
+    }
+  }, [error]);
 
   const handleVote = async () => {
     if (selectedOption === null) return;
 
-    setIsSubmitting(true);
+    setErrorMessage(null);
 
-    // TODO: Call smart contract to vote
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    onVote(selectedOption);
+    try {
+      vote(poll.id, selectedOption);
+    } catch (err) {
+      console.error('Error voting:', err);
+      setErrorMessage('Failed to submit vote. Please try again.');
+    }
   };
 
   const getTimeRemaining = (): string => {
@@ -138,13 +166,36 @@ export function PollVoteCard({ poll, userWeight, onVote }: PollVoteCardProps) {
 
       {/* Vote Button */}
       {canVote && (
-        <button
-          onClick={handleVote}
-          disabled={selectedOption === null || isSubmitting}
-          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isSubmitting ? 'Submitting Vote...' : 'Cast Your Vote'}
-        </button>
+        <>
+          <button
+            onClick={handleVote}
+            disabled={selectedOption === null || isSubmitting}
+            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isPending && 'Confirm in wallet...'}
+            {isConfirming && 'Submitting vote...'}
+            {!isPending && !isConfirming && 'Cast Your Vote'}
+          </button>
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                    Failed to submit vote
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                    {errorMessage}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Poll Closed Message */}
